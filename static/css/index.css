@@ -1,0 +1,320 @@
+/* Project page for "A High-Frequency Perspective on 3D Gaussian Splatting".
+   Layout follows the Nerfies project-page anatomy; styling is self-contained
+   (no CDN, works from file://). Accents are taken from the thesis' own
+   colormaps: viridis teal for the residual side, inferno amber for the
+   spectral-deficit side. */
+
+:root {
+  --paper: #fcfcfa;
+  --panel: #f4f4ef;
+  --ink: #1b1d21;
+  --muted: #5b6068;
+  --line: #dcdcd4;
+  --teal: #21808a;      /* viridis-adjacent: links, handles, SAD highlights */
+  --teal-dark: #175d64;
+  --amber: #d95f0e;     /* inferno-adjacent: deficit annotations only */
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: 960px; margin: 0 auto; padding: 0 1.25rem; }
+.narrow { max-width: 780px; }
+
+section { padding: 2.75rem 0; }
+section + section { border-top: 1px solid var(--line); }
+
+a { color: var(--teal); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+img, video { max-width: 100%; display: block; }
+
+/* ---------- hero ---------- */
+
+.hero { text-align: center; padding: 3.5rem 0 2.25rem; }
+
+.hero h1 {
+  font-family: var(--serif);
+  font-size: clamp(1.9rem, 4.5vw, 3rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  max-width: 21ch;
+  margin: 0 auto;
+}
+
+.hero .method-name {
+  margin-top: 0.9rem;
+  font-size: 1.15rem;
+  color: var(--muted);
+}
+.hero .method-name strong { color: var(--ink); font-weight: 600; }
+
+/* signature: a chirp — spatial frequency rising left to right */
+.freq-rule { margin: 1.4rem auto 0.4rem; width: min(420px, 80%); display: block; }
+
+.authors { margin-top: 1.1rem; font-size: 1.1rem; }
+.authors a { color: var(--ink); }
+.authors a:hover { color: var(--teal); }
+.affiliation { color: var(--muted); font-size: 1rem; margin-top: 0.2rem; }
+.supervisors { color: var(--muted); font-size: 0.95rem; margin-top: 0.5rem; }
+
+.link-row { margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.15rem;
+  font-size: 0.95rem;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+.btn:hover { background: var(--teal-dark); color: #fff; text-decoration: none; }
+.btn svg { width: 1em; height: 1em; fill: currentColor; }
+.btn.disabled { background: #9a9e96; cursor: default; pointer-events: none; }
+
+/* ---------- sections ---------- */
+
+h2 {
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1.4rem;
+}
+
+h3 {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 2rem 0 0.75rem;
+}
+
+.prose p { margin-bottom: 1rem; text-align: justify; hyphens: auto; }
+.prose p:last-child { margin-bottom: 0; }
+
+.caption {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  text-align: center;
+  margin-top: 0.65rem;
+}
+.caption.left { text-align: left; }
+
+.takeaway {
+  text-align: center;
+  color: var(--muted);
+  font-size: 1.05rem;
+  max-width: 620px;
+  margin: 0.9rem auto 0;
+}
+.takeaway strong { color: var(--ink); }
+
+/* ---------- comparison slider (ba-compare) ---------- */
+
+.ba-compare {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #000;
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+.ba-compare img, .ba-compare video { width: 100%; height: auto; pointer-events: none; }
+.ba-compare .ba-top {
+  position: absolute;
+  inset: 0;
+}
+.ba-compare .ba-divider {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(0,0,0,0.55);
+  pointer-events: none;
+}
+.ba-compare .ba-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.94);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.ba-compare .ba-handle svg { width: 20px; height: 20px; fill: var(--ink); }
+.ba-compare .ba-label {
+  position: absolute;
+  top: 0.6rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: var(--sans);
+  color: #fff;
+  background: rgba(20,22,25,0.62);
+  pointer-events: none;
+}
+.ba-compare .ba-label.a { left: 0.6rem; }
+.ba-compare .ba-label.b { right: 0.6rem; }
+.ba-compare .ba-label strong { color: #7fd4dc; font-weight: 600; }
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+.compare-grid figure { margin: 0; }
+
+/* ---------- method strip ---------- */
+
+.method-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  margin-top: 1.25rem;
+}
+.method-strip figure { margin: 0; position: relative; }
+.method-strip img { border-radius: 6px; }
+.method-strip figcaption {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 0.4rem;
+  line-height: 1.35;
+}
+.method-strip .step {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--paper);
+  background: var(--ink);
+  border-radius: 3px;
+  padding: 0 0.35rem;
+  position: absolute;
+  top: 0.35rem; left: 0.35rem;
+}
+.method-strip figure.deficit .step { background: var(--amber); }
+@media (max-width: 720px) {
+  .method-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+.figure-block { margin-top: 2rem; }
+.figure-block img { margin: 0 auto; border-radius: 6px; }
+
+/* ---------- metrics table ---------- */
+
+.table-wrap { overflow-x: auto; margin-top: 1rem; }
+table.metrics {
+  border-collapse: collapse;
+  margin: 0 auto;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+table.metrics th, table.metrics td {
+  padding: 0.4rem 0.85rem;
+  text-align: right;
+  white-space: nowrap;
+}
+table.metrics th { font-weight: 600; }
+table.metrics thead tr:last-child th { border-bottom: 1.5px solid var(--ink); }
+table.metrics td:first-child, table.metrics th:first-child { text-align: left; }
+table.metrics tbody tr.ours { background: #e8f2f1; }
+table.metrics tbody tr.rule td { border-top: 1px solid var(--line); }
+table.metrics .best { font-weight: 700; }
+table.metrics .unit { font-weight: 400; color: var(--muted); font-size: 0.85em; }
+
+/* ---------- video slots ---------- */
+
+.video-slot { position: relative; border-radius: 10px; overflow: hidden; background: #000; }
+.video-slot video, .video-slot img.poster { width: 100%; height: auto; }
+.video-slot .pending-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background: rgba(18,20,24,0.55);
+  color: #fff;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 1rem;
+}
+.video-slot .pending-badge .tag {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--amber);
+  border-radius: 3px;
+  padding: 0.1rem 0.5rem;
+}
+.video-slot.loaded .pending-badge, .video-slot.loaded img.poster { display: none; }
+.video-slot:not(.loaded) video { display: none; }
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+.video-grid figure { margin: 0; }
+
+/* ---------- BibTeX ---------- */
+
+pre.bibtex {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1.1rem 1.3rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+/* ---------- footer ---------- */
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 2.25rem 0 3rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+footer p { max-width: 640px; margin: 0 auto 0.7rem; }
