@@ -31,6 +31,9 @@ SAD_BICYCLE=$O/newproj-sad_v1.7-bicycle-s0-FINAL-a1-ff0-pa32-p128-NOLPIPS-NOaxia
 SAD_GARDEN=$O/newproj-sad_v1.7-garden-s0-FINAL-a1-ff0-pa32-p128-NOLPIPS-NOaxial
 
 render () {  # render <model_dir> <path_from_dir> <width> <basename>
+  if [ -f "$WORK/$4.mp4" ]; then
+    echo "[skip] $4.mp4 exists"; cp "$WORK/$4.mp4" "$VIDEOS/$4.mp4"; return
+  fi
   python "$SCRIPTS/render_flythrough.py" \
     -m "$1" --path_from "$2" --width "$3" \
     --codebase "$CODE" --iteration 30000 \

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -87,10 +88,14 @@ def overlay(img, text: str):
 
 
 def ffmpeg_assemble(frames_dir: Path, out: Path, fps: int) -> None:
-    cmd = ["ffmpeg", "-y", "-framerate", str(fps), "-i", str(frames_dir / "%05d.png"),
+    ffmpeg_bin = os.environ.get(
+        "FFMPEG_BIN", "/export/home/ra28kuc/miniconda3-new/envs/fdsgs/bin/ffmpeg")
+    if not Path(ffmpeg_bin).exists():
+        ffmpeg_bin = shutil.which("ffmpeg") or ffmpeg_bin
+    cmd = [ffmpeg_bin, "-y", "-framerate", str(fps), "-i", str(frames_dir / "%05d.png"),
            "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p",
            "-movflags", "+faststart", str(out)]
-    if shutil.which("ffmpeg") is None:
+    if not Path(ffmpeg_bin).exists() and shutil.which(ffmpeg_bin) is None:
         readme = frames_dir / "README_ffmpeg.txt"
         readme.write_text("ffmpeg was not on PATH. Assemble the video with:\n\n"
                           + " ".join(cmd) + "\n")

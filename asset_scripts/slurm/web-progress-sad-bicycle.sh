@@ -29,8 +29,8 @@ python train.py \
   --sad_entropy_threshold 0.5 --sad_aniso_k 0.6 --sad_deficit_ema_beta 0 \
   --lambda_dssim 0.2 --test_iterations 7000 30000 \
   --save_iterations 500 1000 2000 3000 5000 7000 10000 15000 20000 25000 30000 \
-  --wandb --wandb_project "gaussian-splatting-new" \
-  --wandb_entity kerscher-nik-ludwig-maximilianuniversity-of-munich \
+  --wandb --wandb_project "gaussian-splatting" \
+  --wandb_entity niklas-cambridge-lmu-master-thesis-frepolad \
   --wandb_run_name "web-progress-sad-bicycle" \
   --wandb_tags note:webpage_progress variant:SAD_FINAL_pure
 echo DONE
