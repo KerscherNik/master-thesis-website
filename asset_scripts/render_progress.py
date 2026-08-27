@@ -166,7 +166,7 @@ def render(args) -> None:
         n = gaussians.get_xyz.shape[0]
         with torch.no_grad():
             img = gs_render(cam, gaussians, pipe, background)["render"].clamp(0.0, 1.0)
-        arr = (img.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
+        arr = np.rint(img.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
         frame = overlay(Image.fromarray(arr), f"iteration {it:>6,}   -   {n:,} Gaussians")
         # hold each checkpoint; hold the final one three times as long
         reps = hold * (3 if it == iters[-1] else 1)

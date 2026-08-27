@@ -186,7 +186,7 @@
     </table>
   </div>
   <p class="caption">All rows trained under our pipeline: single seed, resolution factor 4, LPIPS with a VGG backbone,
-     FPS as 1000 / mean render time. Bold marks the better value within each dataset block. The count reduction
+     FPS as 1000 / mean render time. Bold marks the better of SAD and its 3DGS baseline in each block; on the nine-scene average, MCMC leads the field on quality at the largest count. The count reduction
      transfers to Tanks&nbsp;&amp;&nbsp;Temples and Deep Blending; the perceptual metrics there do not.</p>
 
   <h3>Same view, same training data &mdash; drag to compare</h3>
@@ -264,7 +264,7 @@
   <h3>Training progress</h3>
   <p class="caption left">A fixed held-out view rendered at each saved checkpoint between 500 and 30,000 iterations,
      with the iteration counter and Gaussian count overlaid.</p>
-  <div class="video-grid">
+  <div class="video-grid pairs">
     <figure>
       <div class="video-slot">
         <video muted loop playsinline preload="metadata" src="static/videos/progress_sad_flowers.mp4"></video>
@@ -303,9 +303,10 @@
   <div class="figure-block">
     <img src="static/images/results/pareto.png" alt="Pareto plot of PSNR against Gaussian count for SAD, 3DGS and related methods">
   </div>
-  <p class="caption">Quality against primitive count across configurations. SAD's prune-pressure parameter trades count
-     against quality along one curve; the final configuration sits at the leaner end, the quality configuration
-     (&alpha;<sub>p</sub>&nbsp;=&nbsp;8) surpasses the baseline on all three image metrics at a higher count.</p>
+  <p class="caption">PSNR and LPIPS against primitive count, nine-scene Mip-NeRF&nbsp;360 averages, all methods under
+     our pipeline. SAD sits left of its 3DGS baseline at near-identical PSNR and better LPIPS; MCMC and FDS-GS reach
+     higher quality at larger models. A second SAD configuration that prunes less aggressively surpasses the baseline
+     on all three image metrics at a count above the baseline's.</p>
 </section>
 
 <!-- ================= bibtex ================= -->

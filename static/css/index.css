@@ -60,7 +60,7 @@ img, video { max-width: 100%; display: block; }
   font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.01em;
-  max-width: 21ch;
+  max-width: 32ch;
   margin: 0 auto;
 }
 
@@ -292,6 +292,10 @@ table.metrics .unit { font-weight: 400; color: var(--muted); font-size: 0.85em; 
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.25rem;
   margin-top: 1rem;
+}
+.video-grid.pairs { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 640px) {
+  .video-grid.pairs { grid-template-columns: 1fr; }
 }
 .video-grid figure { margin: 0; }
 
