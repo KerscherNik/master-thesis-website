@@ -74,7 +74,8 @@ def build_path(args) -> tuple[list, tuple[int, int], tuple[float, float]]:
     cfg = campath.load_cfg_args(Path(args.model_path))
     orbit = campath.fit_orbit(cams)
     poses = campath.orbit_poses(orbit, args.frames, scale=args.ellipse_scale,
-                                height_offset=args.height_offset, bob=args.bob)
+                                height_offset=args.height_offset, bob=args.bob,
+                                dolly=args.dolly, ease=args.ease)
     W, H = campath.render_size(cams, cfg, args.width)
     fovx, fovy = campath.fov_from_cams(cams, W, H)
     return poses, (W, H), (fovx, fovy)
@@ -159,6 +160,8 @@ def main() -> None:
     p.add_argument("--ellipse_scale", type=float, default=0.9, help="orbit radius as a multiple of the fitted camera ellipse")
     p.add_argument("--height_offset", type=float, default=0.0, help="shift along the orbit-plane normal, world units")
     p.add_argument("--bob", type=float, default=0.0, help="vertical oscillation amplitude, fraction of mean radius (e.g. 0.05)")
+    p.add_argument("--dolly", type=float, default=0.0, help="fly-in depth: fraction of the radius given up at the loop midpoint (e.g. 0.45)")
+    p.add_argument("--ease", type=float, default=0.0, help="slow the sweep around the closest approach, 0..<1 (e.g. 0.5)")
     p.add_argument("--out", default=None, help="output mp4 (dry run: optional path JSON)")
     p.add_argument("--frames_dir", default=None, help="where to write frames (default: <out>_frames)")
     p.add_argument("--keep_frames", action="store_true")

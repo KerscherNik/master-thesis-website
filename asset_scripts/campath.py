@@ -128,22 +128,41 @@ def fit_orbit(cams: list[dict]) -> dict:
 
 
 def orbit_poses(orbit: dict, n_frames: int, scale: float = 1.0,
-                height_offset: float = 0.0, bob: float = 0.0) -> list[tuple[np.ndarray, np.ndarray]]:
+                height_offset: float = 0.0, bob: float = 0.0,
+                dolly: float = 0.0, ease: float = 0.0) -> list[tuple[np.ndarray, np.ndarray]]:
     """n_frames (C2W rotation, centre) pairs on the ellipse; seamless loop.
 
     scale multiplies the fitted radii; height_offset shifts along the plane
     normal in world units; bob adds a gentle two-period vertical oscillation
     (fraction of the mean radius).
+
+    dolly (0..~0.6) turns the orbit into a fly-in/fly-out: the radii shrink
+    by up to that fraction at the loop's midpoint (raised-cosine bump, so the
+    loop stays seamless), and the camera height glides toward the focus
+    height by the same bump — one spiral in over the detail region, then
+    back out.
+
+    ease (0..<1) slows the sweep around the closest approach:
+    theta advances as 2*pi*t + ease*sin(2*pi*t), i.e. angular speed
+    2*pi*(1 + ease*cos(...)) — slowest exactly where the camera is closest,
+    so fine detail gets screen time. Still a single full revolution.
     """
     # std of cos over a full period is 1/sqrt(2): ring of cameras with std s
     # sits at radius ~ s * sqrt(2)
     a = scale * math.sqrt(2.0) * orbit["s1"]
     b = scale * math.sqrt(2.0) * orbit["s2"]
     base = orbit["mean"] + height_offset * orbit["e3"]
+    descend = float((orbit["target"] - base) @ orbit["e3"])  # signed height gap
     poses = []
     for k in range(n_frames):
-        th = orbit["phase0"] + 2 * math.pi * k / n_frames
-        eye = base + a * math.cos(th) * orbit["e1"] + b * math.sin(th) * orbit["e2"]
+        t = k / n_frames
+        th = orbit["phase0"] + 2 * math.pi * t + ease * math.sin(2 * math.pi * t)
+        w = 0.5 * (1.0 - math.cos(2 * math.pi * t))  # 0 at seam, 1 mid-loop
+        shrink = 1.0 - dolly * w
+        eye = (base
+               + shrink * a * math.cos(th) * orbit["e1"]
+               + shrink * b * math.sin(th) * orbit["e2"]
+               + dolly * w * descend * orbit["e3"])
         if bob:
             eye = eye + bob * 0.5 * (a + b) * math.sin(2 * th) * orbit["e3"]
         rot = look_at_rotation(eye, orbit["target"], orbit["world_up"])
