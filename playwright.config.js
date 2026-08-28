@@ -1,11 +1,11 @@
-const { defineConfig } = require("@playwright/test");
+const { defineConfig, devices } = require("@playwright/test");
 
 module.exports = defineConfig({
   testDir: "tests/e2e",
   timeout: 90000,
   expect: { timeout: 15000 },
-  fullyParallel: false,
-  workers: 1,
+  fullyParallel: true,
+  workers: process.env.CI ? 2 : 4,
   reporter: [["list"]],
   use: {
     baseURL: "http://127.0.0.1:4173",
@@ -18,5 +18,24 @@ module.exports = defineConfig({
     reuseExistingServer: true,
     timeout: 15000
   },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }]
+  projects: [
+    {
+      name: "chromium",
+      use: { browserName: "chromium" },
+      testIgnore: /mobile\.spec\.js/
+    },
+    /* touch emulation (isMobile + hasTouch + coarse pointer); Chromium engine,
+       so responsive/interaction behaviour is covered — engine-specific iOS
+       Safari bugs still need a real device */
+    {
+      name: "phone",
+      use: { ...devices["Pixel 7"], browserName: "chromium" },
+      testMatch: /mobile\.spec\.js/
+    },
+    {
+      name: "tablet",
+      use: { ...devices["iPad (gen 7)"], browserName: "chromium" },
+      testMatch: /mobile\.spec\.js/
+    }
+  ]
 });

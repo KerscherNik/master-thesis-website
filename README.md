@@ -31,7 +31,10 @@ across four scenes (flowers, bicycle, garden, stump), 16 videos in total
 (`flythrough_{sad,3dgs,mcmc,fdsgs}_{scene}.mp4`); two methods sit in the
 draggable comparison at 0.6x speed, the others wait as small bench tiles
 that can be dragged onto either side — the replaced method drops back to
-the bench. FDS-GS renders were produced with the FDS-GS codebase and env
+the bench. The camera path is a fly-in/fly-out orbit (`campath.py --dolly
+0.45 --ease 0.5`): one revolution that spirals into the detail region at
+mid-loop and slows there, because at full-scene distance the methods are
+indistinguishable — the differences live in high-frequency detail. FDS-GS renders were produced with the FDS-GS codebase and env
 (its plys carry a per-Gaussian filter radius `R` that only its own
 rasterizer handles; see `asset_scripts/slurm/web-flythrough-fds-retry.sh`).
 
@@ -44,6 +47,11 @@ npm test                          # unit + e2e
 npm run test:unit                 # Vitest only
 npm run test:e2e                  # Playwright only (starts its own server on :4173)
 ```
+
+Playwright runs three projects: `chromium` (desktop, all specs), and `phone` /
+`tablet` (Pixel 7 and iPad emulation with touch, `tests/e2e/mobile.spec.js`).
+`responsive.spec.js` sweeps layout invariants over an 11-width matrix
+(320-1280px); `a11y.spec.js` keeps the page at zero axe violations.
 
 ## CI / deployment
 

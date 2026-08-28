@@ -124,8 +124,13 @@
       document.dispatchEvent(new Event("critical-assets"));
     }
 
-    if (isFile || !window.fetch) {
-      /* no loader possible: plain progressive playback */
+    /* respect Save-Data and very slow connections: no big up-front download,
+       videos stream progressively instead */
+    var conn = navigator.connection;
+    var lite = !!(conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || "")));
+
+    if (isFile || lite || !window.fetch) {
+      /* no loader possible (or not wanted): plain progressive playback */
       criticalVids.concat(lazyVids).forEach(function (v) {
         attachSrc(v, v.getAttribute("data-src"));
       });
@@ -302,14 +307,16 @@
       top.style.clipPath = "inset(0 " + (100 - pos) + "% 0 0)";
       divider.style.left = pos + "%";
       handle.style.left = pos + "%";
-      root.setAttribute("aria-valuenow", Math.round(pos));
+      handle.setAttribute("aria-valuenow", Math.round(pos));
     }
 
-    root.setAttribute("tabindex", "0");
-    root.setAttribute("role", "slider");
-    root.setAttribute("aria-valuemin", "0");
-    root.setAttribute("aria-valuemax", "100");
-    root.setAttribute("aria-label", "Comparison slider: " +
+    /* the slider role lives on the handle, not the container: the container
+       also holds the enlarge button, and interactive controls must not nest */
+    handle.setAttribute("tabindex", "0");
+    handle.setAttribute("role", "slider");
+    handle.setAttribute("aria-valuemin", "0");
+    handle.setAttribute("aria-valuemax", "100");
+    handle.setAttribute("aria-label", "Comparison slider: " +
       (labelA || "left").replace(/<[^>]*>/g, "") + " versus " +
       (labelB || "right").replace(/<[^>]*>/g, ""));
     apply();
@@ -333,7 +340,7 @@
     ["pointerup", "pointercancel"].forEach(function (t) {
       root.addEventListener(t, function () { dragging = false; });
     });
-    root.addEventListener("keydown", function (ev) {
+    handle.addEventListener("keydown", function (ev) {
       if (ev.key === "ArrowLeft") { pos = clamp(pos - 2, 0, 100); apply(); ev.preventDefault(); }
       if (ev.key === "ArrowRight") { pos = clamp(pos + 2, 0, 100); apply(); ev.preventDefault(); }
     });
@@ -351,10 +358,8 @@
           (poster ? '<img class="poster" src="' + poster + '" alt="">' : "") +
           '<div class="pending-badge"><span class="tag">unavailable</span>' +
           "<span>Fly-through pair not rendered yet</span></div>";
-        root.innerHTML = "";
+        root.innerHTML = ""; /* also removes the handle and its slider role */
         root.appendChild(slot);
-        root.removeAttribute("role");
-        root.removeAttribute("tabindex");
         root.style.cursor = "default";
       }
       [a, b].forEach(function (v) {
@@ -393,7 +398,9 @@
     document.body.appendChild(lb);
     var stage = lb.querySelector(".lb-stage");
     var cap = lb.querySelector(".lb-caption");
+    var closeBtn = lb.querySelector(".lb-close");
     var pausedPairs = [];
+    var opener = null;
 
     openLightbox = function (build, captionText) {
       stage.innerHTML = "";
@@ -402,6 +409,9 @@
       cap.style.display = captionText ? "" : "none";
       lb.classList.add("open");
       document.body.classList.add("no-scroll");
+      /* move focus into the dialog; return it on close */
+      opener = document.activeElement;
+      closeBtn.focus();
       /* silence page videos behind the overlay */
       pausedPairs = [];
       document.querySelectorAll("video").forEach(function (v) {
@@ -412,6 +422,8 @@
       if (!lb.classList.contains("open")) return;
       lb.classList.remove("open");
       document.body.classList.remove("no-scroll");
+      if (opener && opener.focus) opener.focus();
+      opener = null;
       stage.querySelectorAll("video").forEach(function (v) {
         v.pause();
         v.removeAttribute("src");
@@ -426,6 +438,43 @@
     });
     document.addEventListener("keydown", function (ev) {
       if (ev.key === "Escape") closeLightbox();
+      /* keep Tab inside the dialog while it is open */
+      if (ev.key === "Tab" && lb.classList.contains("open")) {
+        var focusables = lb.querySelectorAll(
+          "button, video[controls], [tabindex]:not([tabindex='-1'])");
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        if (ev.shiftKey && document.activeElement === first) {
+          last.focus(); ev.preventDefault();
+        } else if (!ev.shiftKey && document.activeElement === last) {
+          first.focus(); ev.preventDefault();
+        } else if (!lb.contains(document.activeElement)) {
+          first.focus(); ev.preventDefault();
+        }
+      }
+    });
+  }
+
+  /* ---------- tablist keyboard pattern (ARIA APG) ---------- */
+
+  function initTablists() {
+    document.querySelectorAll(".pe-tabs").forEach(function (list) {
+      var tabs = [].slice.call(list.querySelectorAll("[role=tab]"));
+      list.addEventListener("keydown", function (ev) {
+        var i = tabs.indexOf(document.activeElement);
+        if (i < 0) return;
+        var j = null;
+        if (ev.key === "ArrowRight") j = (i + 1) % tabs.length;
+        if (ev.key === "ArrowLeft") j = (i - 1 + tabs.length) % tabs.length;
+        if (ev.key === "Home") j = 0;
+        if (ev.key === "End") j = tabs.length - 1;
+        if (j !== null) {
+          tabs[j].focus();
+          tabs[j].click();
+          ev.preventDefault();
+        }
+      });
     });
   }
 
@@ -578,8 +627,11 @@
       if (lb) lb.textContent = label(right);
       root.querySelector(".fa-drop.left .fa-drop-name").textContent = label(left);
       root.querySelector(".fa-drop.right .fa-drop-name").textContent = label(right);
-      cmp.setAttribute("aria-label",
-        "Comparison slider: " + label(left) + " versus " + label(right));
+      var hd = cmp.querySelector(".ba-handle");
+      if (hd) {
+        hd.setAttribute("aria-label",
+          "Comparison slider: " + label(left) + " versus " + label(right));
+      }
       if (cmp._compare) {
         cmp._compare.srcs = [core.flyPath(scene, left), core.flyPath(scene, right)];
         cmp._compare.labels = [label(left), label(right)];
@@ -589,14 +641,17 @@
     function attachSide(v, path) {
       pendingSides += 1;
       cmp.classList.add("fa-loading");
+      v.style.opacity = "0.25";
       v.addEventListener("loadeddata", function done() {
         v.removeEventListener("loadeddata", done);
+        v.style.opacity = "";
         pendingSides = Math.max(0, pendingSides - 1);
         if (!pendingSides) cmp.classList.remove("fa-loading");
       });
       fetchToBlob(path).then(function (url) {
         attachSrc(v, url);
       }).catch(function () {
+        v.style.opacity = "";
         pendingSides = Math.max(0, pendingSides - 1);
         if (!pendingSides) cmp.classList.remove("fa-loading");
       });
@@ -613,8 +668,8 @@
         '<span class="spinner" aria-hidden="true"></span></div>' +
         '<div class="fa-tile-side"><span class="fa-tile-name"></span>' +
         '<div class="fa-tile-actions">' +
-        '<button type="button" class="fa-swap" data-side="a" aria-label="Swap into left side">&#9664;</button>' +
-        '<button type="button" class="fa-swap" data-side="b" aria-label="Swap into right side">&#9654;</button>' +
+        '<button type="button" class="fa-swap" data-side="a" title="Swap into left side" aria-label="Swap into left side">&#9664;</button>' +
+        '<button type="button" class="fa-swap" data-side="b" title="Swap into right side" aria-label="Swap into right side">&#9654;</button>' +
         "</div></div>";
       tile.querySelector(".fa-tile-name").textContent = label(m);
 
@@ -825,6 +880,7 @@
     initLightboxTriggers();
     initArena();
     initProgressExplorer();
+    initTablists();
     initVisibility();
     startLoader();
   });

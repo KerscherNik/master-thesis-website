@@ -13,18 +13,18 @@ test("dragging the divider moves the comparison position", async ({ page }) => {
   await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2, { steps: 5 });
   await page.mouse.up();
 
-  const pos = +(await cmp.getAttribute("aria-valuenow"));
+  const pos = +(await cmp.locator(".ba-handle").getAttribute("aria-valuenow"));
   expect(pos).toBeGreaterThan(15);
   expect(pos).toBeLessThan(35);
 });
 
-test("arrow keys move the divider", async ({ page }) => {
-  const cmp = page.locator(".ba-compare").first();
-  await cmp.scrollIntoViewIfNeeded();
-  await cmp.focus();
-  const before = +(await cmp.getAttribute("aria-valuenow"));
+test("arrow keys move the divider (slider role lives on the handle)", async ({ page }) => {
+  const handle = page.locator(".ba-compare .ba-handle").first();
+  await handle.scrollIntoViewIfNeeded();
+  await handle.focus();
+  const before = +(await handle.getAttribute("aria-valuenow"));
   for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");
-  const after = +(await cmp.getAttribute("aria-valuenow"));
+  const after = +(await handle.getAttribute("aria-valuenow"));
   expect(after).toBe(before + 6);
 });
 

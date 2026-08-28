@@ -20,11 +20,16 @@ test("page loads without console errors and all images render", async ({ page })
 
   expect(errors).toEqual([]);
 
-  const badImages = await page.evaluate(() =>
-    [...document.images]
-      .filter(i => i.src && !i.naturalWidth)
-      .map(i => i.getAttribute("src")));
-  expect(badImages).toEqual([]);
+  // lazy images only fetch near the viewport; force the stragglers eager
+  // so "every referenced image actually decodes" can be asserted
+  await page.evaluate(() =>
+    document.querySelectorAll("img[loading=lazy]").forEach(i => { i.loading = "eager"; }));
+  await expect.poll(async () =>
+    page.evaluate(() =>
+      [...document.images]
+        .filter(i => i.src && !i.naturalWidth)
+        .map(i => i.getAttribute("src"))),
+    { timeout: 20000 }).toEqual([]);
 
   for (const heading of ["Abstract", "Method", "Results", "BibTeX"]) {
     await expect(page.getByRole("heading", { name: heading })).toBeVisible();
