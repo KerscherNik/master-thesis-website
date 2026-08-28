@@ -5,12 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description"
         content="Spectral-Aware Densification (SAD): steering 3D Gaussian Splatting densification with a frequency-domain deficit signal. About 25% fewer Gaussians at matched quality on Mip-NeRF 360.">
+  <!-- keep the page out of search engines while the thesis is unpublished;
+       remove this line (and robots.txt) to make the page indexable -->
+  <meta name="robots" content="noindex, nofollow">
   <title>A High-Frequency Perspective on 3D Gaussian Splatting</title>
   <link rel="icon" href="static/images/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="static/css/index.css">
-  <script src="static/js/compare.js"></script>
+  <script src="static/js/core.js" defer></script>
+  <script src="static/js/compare.js" defer></script>
 </head>
-<body>
+<body class="loading">
+
+<!-- ================= asset loader ================= -->
+<div id="loader" role="status" aria-label="Loading page assets">
+  <div class="loader-inner">
+    <p class="loader-title">A High-Frequency Perspective<br>on 3D Gaussian Splatting</p>
+    <div class="loader-bar"><div class="loader-fill"></div></div>
+    <p class="loader-status">preparing renders&hellip;</p>
+    <button class="loader-skip" type="button">skip &mdash; load in background</button>
+  </div>
+</div>
+<noscript><style>#loader{display:none}body.loading{overflow:auto}</style></noscript>
 
 <!-- ================= hero ================= -->
 <header class="hero container">
@@ -229,79 +244,62 @@
      show the same reallocation pattern in MCMC and FDS-GS, which reach it by other routes.</p>
 
   <h3>Fly-throughs</h3>
-  <p class="caption left">Camera-path renders of the converged models (elliptical path through the training cameras).
-     The comparison below pairs SAD and 3DGS on the same path with a draggable divider.</p>
-  <div class="ba-compare" style="margin-top:0.75rem;"
-       data-label-a="<strong>SAD</strong> (ours)" data-label-b="3DGS"
-       data-poster="static/images/posters/flowers.jpg">
-    <video muted loop playsinline preload="auto" poster="static/images/posters/flowers.jpg"
-           src="static/videos/flythrough_sad_flowers.mp4"></video>
-    <video muted loop playsinline preload="auto" poster="static/images/posters/flowers.jpg"
-           src="static/videos/flythrough_3dgs_flowers.mp4"></video>
-  </div>
-  <div class="video-grid">
-    <figure>
-      <div class="video-slot">
-        <video muted loop playsinline preload="metadata" src="static/videos/flythrough_sad_bicycle.mp4"></video>
-        <img class="poster" src="static/images/posters/bicycle.jpg" alt="">
-        <div class="pending-badge"><span class="tag">placeholder</span><span>Fly-through not rendered yet</span></div>
+  <p class="caption left">Camera-path renders of the converged models (elliptical path through the training cameras),
+     every method on the same path. Drag the divider to compare the two methods in the ring; drag a tile from the
+     bench onto either side to swap that method in &mdash; the replaced one drops back to the bench.</p>
+  <div class="flythrough-arena" id="flythrough-arena">
+    <div class="fa-head">
+      <div class="pe-tabs" role="tablist" aria-label="Fly-through scene">
+        <button class="pe-tab active" type="button" role="tab" aria-selected="true" data-fly-scene="flowers">flowers</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="bicycle">bicycle</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="garden">garden</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="stump">stump</button>
       </div>
-      <figcaption class="caption"><em>bicycle</em>, SAD, 2.95M Gaussians</figcaption>
-    </figure>
-    <figure>
-      <div class="video-slot">
-        <video muted loop playsinline preload="metadata" src="static/videos/flythrough_sad_garden.mp4"></video>
-        <img class="poster" src="static/images/posters/garden.jpg" alt="">
-        <div class="pending-badge"><span class="tag">placeholder</span><span>Fly-through not rendered yet</span></div>
-      </div>
-      <figcaption class="caption"><em>garden</em>, SAD, 2.75M Gaussians</figcaption>
-    </figure>
-    <figure>
-      <div class="video-slot">
-        <video muted loop playsinline preload="metadata" src="static/videos/flythrough_mcmc_flowers.mp4"></video>
-        <img class="poster" src="static/images/posters/flowers.jpg" alt="">
-        <div class="pending-badge"><span class="tag">placeholder</span><span>Fly-through not rendered yet</span></div>
-      </div>
-      <figcaption class="caption"><em>flowers</em>, 3DGS-MCMC, capped at 3.40M Gaussians</figcaption>
-    </figure>
+    </div>
+    <div class="ba-compare fa-compare" data-label-a="SAD (ours)" data-label-b="3DGS" data-rate="0.6"
+         data-poster="static/images/posters/flowers.jpg">
+      <video muted loop playsinline preload="none" poster="static/images/posters/flowers.jpg"
+             data-critical data-src="static/videos/flythrough_sad_flowers.mp4"></video>
+      <video muted loop playsinline preload="none" poster="static/images/posters/flowers.jpg"
+             data-critical data-src="static/videos/flythrough_3dgs_flowers.mp4"></video>
+      <div class="fa-drop left" data-side="a"><span>replace <b class="fa-drop-name"></b></span></div>
+      <div class="fa-drop right" data-side="b"><span>replace <b class="fa-drop-name"></b></span></div>
+    </div>
+    <div class="fa-benchrow">
+      <span class="fa-bench-hint">drag onto a side &rarr;</span>
+      <div class="fa-bench"><!-- one tile per benched method, built by compare.js --></div>
+    </div>
   </div>
 
   <h3>Training progress</h3>
-  <p class="caption left">A fixed held-out view rendered at each saved checkpoint between 500 and 30,000 iterations,
-     with the iteration counter and Gaussian count overlaid.</p>
-  <div class="video-grid pairs">
-    <figure>
-      <div class="video-slot">
-        <video muted loop playsinline preload="metadata" src="static/videos/progress_sad_flowers.mp4"></video>
-        <img class="poster" src="static/images/posters/flowers.jpg" alt="">
-        <div class="pending-badge"><span class="tag">placeholder</span><span>Progress run not trained yet</span></div>
+  <p class="caption left">A fixed held-out view rendered at each saved checkpoint between 500 and 30,000 iterations.
+     Pick a scene, then scrub the timeline (or press play) to step SAD and 3DGS through the <em>same</em> training
+     iterations side by side; the overlay in each frame gives the exact iteration and Gaussian count.</p>
+  <div class="progress-explorer" id="progress-explorer">
+    <div class="pe-head">
+      <div class="pe-tabs" role="tablist" aria-label="Scene">
+        <button class="pe-tab active" type="button" role="tab" aria-selected="true" data-scene="flowers">flowers</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-scene="bicycle">bicycle</button>
       </div>
-      <figcaption class="caption"><em>flowers</em> &mdash; SAD</figcaption>
-    </figure>
-    <figure>
-      <div class="video-slot">
-        <video muted loop playsinline preload="metadata" src="static/videos/progress_3dgs_flowers.mp4"></video>
-        <img class="poster" src="static/images/posters/flowers.jpg" alt="">
-        <div class="pending-badge"><span class="tag">placeholder</span><span>Progress run not trained yet</span></div>
+      <span class="pe-iter">iteration 500</span>
+    </div>
+    <div class="pe-pair">
+      <div class="pe-frame">
+        <video muted playsinline preload="none" data-role="sad"></video>
+        <span class="pe-tag sad">SAD (ours)</span>
       </div>
-      <figcaption class="caption"><em>flowers</em> &mdash; 3DGS</figcaption>
-    </figure>
-    <figure>
-      <div class="video-slot">
-        <video muted loop playsinline preload="metadata" src="static/videos/progress_sad_bicycle.mp4"></video>
-        <img class="poster" src="static/images/posters/bicycle.jpg" alt="">
-        <div class="pending-badge"><span class="tag">placeholder</span><span>Progress run not trained yet</span></div>
+      <div class="pe-frame">
+        <video muted playsinline preload="none" data-role="gs"></video>
+        <span class="pe-tag">3DGS</span>
       </div>
-      <figcaption class="caption"><em>bicycle</em> &mdash; SAD</figcaption>
-    </figure>
-    <figure>
-      <div class="video-slot">
-        <video muted loop playsinline preload="metadata" src="static/videos/progress_3dgs_bicycle.mp4"></video>
-        <img class="poster" src="static/images/posters/bicycle.jpg" alt="">
-        <div class="pending-badge"><span class="tag">placeholder</span><span>Progress run not trained yet</span></div>
+    </div>
+    <div class="pe-controls">
+      <button class="pe-play" type="button" aria-label="Play training progression"></button>
+      <div class="pe-slider">
+        <input type="range" min="0" max="10" step="1" value="0" aria-label="Training checkpoint">
+        <div class="pe-ticks" aria-hidden="true"></div>
       </div>
-      <figcaption class="caption"><em>bicycle</em> &mdash; 3DGS</figcaption>
-    </figure>
+    </div>
   </div>
 
   <h3>Quality against model size</h3>
