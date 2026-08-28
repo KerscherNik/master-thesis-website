@@ -1,0 +1,15 @@
+{
+  "name": "sad-thesis-webpage",
+  "private": true,
+  "description": "Project page for 'A High-Frequency Perspective on 3D Gaussian Splatting', with unit (Vitest) and end-to-end (Playwright) tests",
+  "scripts": {
+    "serve": "python3 -m http.server 4173 --bind 127.0.0.1",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.1",
+    "vitest": "^3.2.4"
+  }
+}
