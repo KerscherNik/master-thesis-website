@@ -57,13 +57,69 @@ def png(src: Path, dst: Path) -> None:
     print(f"{dst.relative_to(WEB.parent.parent)}  <- {src}")
 
 
+# Detail-crop boxes (x, y, w, h) at render resolution. Bicycle is the thesis
+# box (fig_exp_crop_assets.py: front wheel, bench leg, grass, view 00012).
+# None = choose by the thesis criterion: the sliding window maximising
+# mean|3DGS - GT| - mean|SAD - GT| on luma, i.e. where the baseline's error
+# most exceeds SAD's.
+CROP_BOX: dict[str, tuple[int, int, int, int] | None] = {
+    "bicycle": (633, 471, 440, 350),
+    "garden": (160, 120, 440, 350),  # view 00010: bark, scuttle, foliage, wood grain
+    "stump": None,
+}
+# crop view can differ from the poster/full view above
+CROP_VIEW = {"garden": "00010"}
+CROP_ZOOM = 2  # upscale factor for crisp full-width rendering
+
+
+def luma(path: Path) -> "np.ndarray":
+    import numpy as np
+    return np.asarray(Image.open(path).convert("L"), dtype=np.float32)
+
+
+def best_box(scene: str, w: int = 440, h: int = 350, stride: int = 40) -> tuple[int, int, int, int]:
+    import numpy as np
+    v = CROP_VIEW.get(scene, VIEW[scene])
+    gt = luma(SAD[scene] / f"test/ours_30000/gt/{v}.png")
+    sad = luma(SAD[scene] / f"test/ours_30000/renders/{v}.png")
+    gs = luma(GS[scene] / f"test/ours_30000/renders/{v}.png")
+    err = np.abs(gs - gt) - np.abs(sad - gt)  # >0 where baseline is worse
+    best, best_xy = -1e9, (0, 0)
+    H, W = err.shape
+    for y in range(0, H - h + 1, stride):
+        for x in range(0, W - w + 1, stride):
+            s = float(err[y:y + h, x:x + w].mean())
+            if s > best:
+                best, best_xy = s, (x, y)
+    print(f"  {scene}: box {best_xy[0]},{best_xy[1]} +{w}x{h} "
+          f"(baseline error exceeds SAD's by {best:.2f} grey levels)")
+    return (*best_xy, w, h)
+
+
+def crop_pair(scene: str) -> None:
+    box = CROP_BOX.get(scene) or best_box(scene)
+    x, y, w, h = box
+    v = CROP_VIEW.get(scene, VIEW[scene])
+    for method, src_dir in (("sad", SAD[scene]), ("3dgs", GS[scene])):
+        im = Image.open(src_dir / f"test/ours_30000/renders/{v}.png")
+        crop = im.crop((x, y, x + w, y + h))
+        crop = crop.resize((w * CROP_ZOOM, h * CROP_ZOOM), Image.LANCZOS)
+        dst = WEB / "comparisons" / f"{scene}_{method}.jpg"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        crop.save(dst, "JPEG", quality=92)
+        print(f"{dst.relative_to(WEB.parent.parent)}  <- {src_dir.name} view {v} box {box} x{CROP_ZOOM}")
+
+
 def main() -> None:
-    # Teaser + result comparison sliders: same test view, SAD vs 3DGS.
-    for scene in ("flowers", "bicycle", "garden", "stump"):
+    # Teaser: full frame, same test view, SAD vs 3DGS.
+    for scene in ("flowers",):
         v = VIEW[scene]
-        sub = "teaser" if scene == "flowers" else "comparisons"
-        jpg(SAD[scene] / f"test/ours_30000/renders/{v}.png", WEB / sub / f"{scene}_sad.jpg")
-        jpg(GS[scene] / f"test/ours_30000/renders/{v}.png", WEB / sub / f"{scene}_3dgs.jpg")
+        jpg(SAD[scene] / f"test/ours_30000/renders/{v}.png", WEB / "teaser" / f"{scene}_sad.jpg")
+        jpg(GS[scene] / f"test/ours_30000/renders/{v}.png", WEB / "teaser" / f"{scene}_3dgs.jpg")
+
+    # Result sliders: 2x-upscaled detail crops where the methods differ.
+    for scene in ("bicycle", "garden", "stump"):
+        crop_pair(scene)
 
     # Method strip: the SAD hero panels (400 DPI handoff exports, flowers scene).
     hero = FIG / "_drawio_handoff" / "sad_hero"

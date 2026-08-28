@@ -123,8 +123,10 @@
         b.play().catch(function () {});
       }
       [a, b].forEach(function (v) {
-        if (v.readyState >= 3) tryStart();
-        else v.addEventListener("canplay", tryStart, { once: true });
+        /* preload="metadata" stops at readyState 1 and never reaches
+           canplay, so activate on loadeddata / readyState >= 2 */
+        if (v.readyState >= 2) tryStart();
+        else v.addEventListener("loadeddata", tryStart, { once: true });
       });
       b.addEventListener("timeupdate", function () {
         if (!failed && Math.abs(a.currentTime - b.currentTime) > 0.08) {
@@ -147,8 +149,8 @@
       slot.classList.add("loaded");
       video.play().catch(function () {});
     }
-    if (video.readyState >= 3) loaded();
-    else video.addEventListener("canplay", loaded, { once: true });
+    if (video.readyState >= 2) loaded();
+    else video.addEventListener("loadeddata", loaded, { once: true });
     /* on error the slot simply stays pending (poster + badge) */
   }
 
@@ -161,8 +163,17 @@
         var vids = e.target.querySelectorAll("video");
         vids.forEach(function (v) {
           if (!v.src || v.error) return;
-          if (e.isIntersecting) v.play().catch(function () {});
-          else v.pause();
+          if (e.isIntersecting) {
+            /* lazy full load: slots ship with preload="metadata" and only
+               fetch frames once scrolled near */
+            if (v.preload !== "auto" && v.readyState < 2) {
+              v.preload = "auto";
+              v.load();
+            }
+            v.play().catch(function () {});
+          } else {
+            v.pause();
+          }
         });
       });
     }, { threshold: 0.15 });

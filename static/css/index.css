@@ -38,7 +38,7 @@ body {
 .container { max-width: 960px; margin: 0 auto; padding: 0 1.25rem; }
 .narrow { max-width: 780px; }
 
-section { padding: 2.75rem 0; }
+section { padding: 3.25rem 0; }
 section + section { border-top: 1px solid var(--line); }
 
 a { color: var(--teal); text-decoration: none; }
@@ -78,7 +78,7 @@ img, video { max-width: 100%; display: block; }
 .authors a { color: var(--ink); }
 .authors a:hover { color: var(--teal); }
 .affiliation { color: var(--muted); font-size: 1rem; margin-top: 0.2rem; }
-.supervisors { color: var(--muted); font-size: 0.95rem; margin-top: 0.5rem; }
+.supervisors { color: var(--muted); font-size: 0.95rem; margin-top: 0.6rem; line-height: 1.7; }
 
 .link-row { margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; }
 
@@ -106,15 +106,16 @@ h2 {
   font-size: 1.8rem;
   font-weight: 600;
   text-align: center;
-  margin-bottom: 1.4rem;
+  margin-bottom: 1.6rem;
 }
 
 h3 {
   font-family: var(--serif);
   font-size: 1.25rem;
   font-weight: 600;
-  margin: 2rem 0 0.75rem;
+  margin: 2.75rem 0 0.85rem;
 }
+h2 + h3, .table-wrap + h3 { margin-top: 2.25rem; }
 
 .prose p { margin-bottom: 1rem; text-align: justify; hyphens: auto; }
 .prose p:last-child { margin-bottom: 0; }
@@ -126,7 +127,7 @@ h3 {
   text-align: center;
   margin-top: 0.65rem;
 }
-.caption.left { text-align: left; }
+.caption.left { text-align: left; margin: 0 0 1rem; }
 
 .takeaway {
   text-align: center;
@@ -191,13 +192,8 @@ h3 {
 .ba-compare .ba-label.b { right: 0.6rem; }
 .ba-compare .ba-label strong { color: #7fd4dc; font-weight: 600; }
 
-.compare-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.25rem;
-  margin-top: 1rem;
-}
-.compare-grid figure { margin: 0; }
+.compare-stack { display: grid; gap: 2.25rem; margin-top: 0.5rem; }
+.compare-stack figure { margin: 0; }
 
 /* ---------- method strip ---------- */
 
@@ -232,7 +228,7 @@ h3 {
   .method-strip { grid-template-columns: repeat(2, 1fr); }
 }
 
-.figure-block { margin-top: 2rem; }
+.figure-block { margin-top: 0.5rem; }
 .figure-block img { margin: 0 auto; border-radius: 6px; }
 
 /* ---------- metrics table ---------- */

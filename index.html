@@ -31,8 +31,9 @@
   <p class="method-name"><strong>SAD &mdash; Spectral-Aware Densification</strong>: a frequency-domain signal decides where Gaussians are added and which are removed.</p>
 
   <p class="authors">Niklas Kerscher</p>
-  <p class="affiliation">Ludwig Maximilian University of Munich &mdash; MSc thesis</p>
-  <p class="supervisors">Supervised by [supervisor placeholder] &middot; [chair placeholder]</p>
+  <p class="affiliation">MSc thesis &mdash; Ludwig Maximilian University of Munich, in collaboration with the University of Cambridge</p>
+  <p class="supervisors">Supervised by Prof.&nbsp;Dr.&nbsp;Bj&ouml;rn Ommer and Prof.&nbsp;Dr.&nbsp;Cengiz &Ouml;ztireli (University of Cambridge)<br>
+     Advised by Olga Grebenkova, M.Sc. and Dr.&nbsp;Chenliang Zhou (University of Cambridge)</p>
 
   <nav class="link-row" aria-label="Resources">
     <a class="btn disabled" href="#" title="Link pending">
@@ -190,27 +191,31 @@
      transfers to Tanks&nbsp;&amp;&nbsp;Temples and Deep Blending; the perceptual metrics there do not.</p>
 
   <h3>Same view, same training data &mdash; drag to compare</h3>
-  <div class="compare-grid">
+  <p class="caption left">Detail crops of held-out test views, chosen where the baseline's error most exceeds SAD's
+     (the thesis' criterion); the per-scene numbers below are full-image averages.</p>
+  <div class="compare-stack">
     <figure>
-      <div class="ba-compare" data-label-a="<strong>SAD</strong> &middot; 2.95M" data-label-b="3DGS &middot; 4.63M">
-        <img src="static/images/comparisons/bicycle_sad.jpg" alt="SAD render, bicycle test view">
-        <img src="static/images/comparisons/bicycle_3dgs.jpg" alt="3DGS render, bicycle test view">
+      <div class="ba-compare" data-label-a="<strong>SAD</strong> (ours) &middot; 2.95M Gaussians" data-label-b="3DGS &middot; 4.63M Gaussians">
+        <img src="static/images/comparisons/bicycle_sad.jpg" alt="SAD render, bicycle test view, front wheel and grass crop">
+        <img src="static/images/comparisons/bicycle_3dgs.jpg" alt="3DGS render, same crop">
       </div>
-      <figcaption class="caption"><em>bicycle</em> &mdash; SAD at 64% of the baseline's count, +0.06&nbsp;dB.</figcaption>
+      <figcaption class="caption"><em>bicycle</em>, front wheel and grass &mdash; SAD at 64% of the baseline's count,
+        +0.06&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
-      <div class="ba-compare" data-label-a="<strong>SAD</strong> &middot; 2.75M" data-label-b="3DGS &middot; 3.66M">
-        <img src="static/images/comparisons/garden_sad.jpg" alt="SAD render, garden test view">
-        <img src="static/images/comparisons/garden_3dgs.jpg" alt="3DGS render, garden test view">
+      <div class="ba-compare" data-label-a="<strong>SAD</strong> (ours) &middot; 2.75M Gaussians" data-label-b="3DGS &middot; 3.66M Gaussians">
+        <img src="static/images/comparisons/garden_sad.jpg" alt="SAD render, garden test view, bark and foliage crop">
+        <img src="static/images/comparisons/garden_3dgs.jpg" alt="3DGS render, same crop">
       </div>
-      <figcaption class="caption"><em>garden</em> &mdash; 75% of the count, &minus;0.12&nbsp;dB.</figcaption>
+      <figcaption class="caption"><em>garden</em>, bark, foliage, and wood grain &mdash; 75% of the count,
+        &minus;0.12&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
-      <div class="ba-compare" data-label-a="<strong>SAD</strong> &middot; 2.88M" data-label-b="3DGS &middot; 4.20M">
-        <img src="static/images/comparisons/stump_sad.jpg" alt="SAD render, stump test view">
-        <img src="static/images/comparisons/stump_3dgs.jpg" alt="3DGS render, stump test view">
+      <div class="ba-compare" data-label-a="<strong>SAD</strong> (ours) &middot; 2.88M Gaussians" data-label-b="3DGS &middot; 4.20M Gaussians">
+        <img src="static/images/comparisons/stump_sad.jpg" alt="SAD render, stump test view, ivy crop">
+        <img src="static/images/comparisons/stump_3dgs.jpg" alt="3DGS render, same crop">
       </div>
-      <figcaption class="caption"><em>stump</em> &mdash; 69% of the count, +0.47&nbsp;dB.</figcaption>
+      <figcaption class="caption"><em>stump</em>, ivy and twigs &mdash; 69% of the count, +0.47&nbsp;dB PSNR.</figcaption>
     </figure>
   </div>
 
@@ -229,9 +234,9 @@
   <div class="ba-compare" style="margin-top:0.75rem;"
        data-label-a="<strong>SAD</strong> (ours)" data-label-b="3DGS"
        data-poster="static/images/posters/flowers.jpg">
-    <video muted loop playsinline preload="metadata" poster="static/images/posters/flowers.jpg"
+    <video muted loop playsinline preload="auto" poster="static/images/posters/flowers.jpg"
            src="static/videos/flythrough_sad_flowers.mp4"></video>
-    <video muted loop playsinline preload="metadata" poster="static/images/posters/flowers.jpg"
+    <video muted loop playsinline preload="auto" poster="static/images/posters/flowers.jpg"
            src="static/videos/flythrough_3dgs_flowers.mp4"></video>
   </div>
   <div class="video-grid">
