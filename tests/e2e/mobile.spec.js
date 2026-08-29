@@ -78,8 +78,12 @@ test("arena works by tap: scene tabs and method swap", async ({ page }) => {
 
   await page.locator('#flythrough-arena [data-fly-scene="garden"]').tap();
   await expect(page.locator('#flythrough-arena [data-fly-scene="garden"]')).toHaveClass(/active/);
-  expect(await page.evaluate(() =>
-    document.querySelector(".fa-compare")._compare.srcs[0])).toContain("garden");
+  // the reel switches to the garden grid (blob once fetched)
+  await expect.poll(() => page.evaluate(() => {
+    const cmp = document.querySelector(".fa-compare");
+    return !cmp.classList.contains("fa-loading") &&
+      document.querySelector(".fa-reel").readyState >= 2;
+  }), { timeout: 60000 }).toBe(true);
 
   await page.locator('.fa-tile[data-method="mcmc"] .fa-swap[data-side="b"]').tap();
   await expect(page.locator(".fa-compare .ba-label.b")).toHaveText("3DGS-MCMC");

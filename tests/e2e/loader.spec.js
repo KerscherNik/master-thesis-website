@@ -8,10 +8,10 @@ test("loader shows, finishes, and hands the pair blob-backed sources", async ({ 
   await expect(page.locator("#loader")).toHaveCount(0, { timeout: 60000 });
   await expect(page.locator("body")).not.toHaveClass(/loading/);
 
-  const srcs = await page.evaluate(() =>
-    [...document.querySelectorAll(".ba-compare video")].map(v => v.src));
-  expect(srcs.length).toBe(2);
-  for (const s of srcs) expect(s).toMatch(/^blob:/);
+  // the arena reel (the one video behind every comparison surface) is
+  // blob-backed, so playback and seeks never touch the network
+  const src = await page.evaluate(() => document.querySelector(".fa-reel").src);
+  expect(src).toMatch(/^blob:/);
 });
 
 test("on a slow connection the skip button appears and reveals the page early", async ({ page }) => {
@@ -39,14 +39,19 @@ test("on a slow connection the skip button appears and reveals the page early", 
   await expect(page.locator(".hero h1")).toBeVisible();
 });
 
-test("a missing bench video degrades to an 'unavailable' card, not a broken page", async ({ page }) => {
-  await page.route("**/flythrough_mcmc_flowers.mp4", route => route.abort());
+test("a failing scene reel leaves the page alive and other scenes recover", async ({ page }) => {
+  // the flowers reel is unreachable in BOTH codecs; the page must still
+  // reveal, and switching to an intact scene must bring the arena to life
+  await page.route("**/grid/flygrid_flowers.mp4", route => route.abort());
+  await page.route("**/av1/grid/flygrid_flowers.mp4", route => route.abort());
   await pageReady(page);
 
-  const card = page.locator('.fa-tile[data-method="mcmc"]');
-  await card.scrollIntoViewIfNeeded();
-  await expect(card).toHaveClass(/fa-unavailable/, { timeout: 30000 });
-  await expect(card.locator(".fa-tile-name")).toContainText(/not available/i);
-  // the comparison itself still works
   await expect(page.locator(".fa-compare .ba-label.a")).toHaveText("SAD (ours)");
+  await page.locator("#flythrough-arena").scrollIntoViewIfNeeded();
+  await page.locator('[data-fly-scene="bicycle"]').click();
+  await expect(page.locator(".fa-compare")).not.toHaveClass(/fa-loading/, { timeout: 60000 });
+  await expect.poll(() => page.evaluate(() => {
+    const r = document.querySelector(".fa-reel");
+    return r.readyState >= 2 && !r.paused;
+  }), { timeout: 30000 }).toBe(true);
 });

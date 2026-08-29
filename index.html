@@ -306,14 +306,15 @@
         <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="drjohnson">drjohnson</button>
         </div>
       </div>
-      <div class="ba-compare fa-compare" data-label-a="SAD (ours)" data-label-b="3DGS" data-rate="0.6"
-           data-poster="static/images/posters/flowers.jpg">
-        <video muted loop playsinline preload="none" poster="static/images/posters/flowers.jpg"
-               aria-label="SAD (ours) fly-through, flowers scene"
-               data-critical data-src="static/videos/flythrough_sad_flowers.mp4"></video>
-        <video muted loop playsinline preload="none" poster="static/images/posters/flowers.jpg"
-               aria-label="3DGS fly-through, flowers scene"
-               data-critical data-src="static/videos/flythrough_3dgs_flowers.mp4"></video>
+      <div class="ba-compare fa-compare" data-label-a="SAD (ours)" data-label-b="3DGS" data-rate="0.6">
+        <!-- one reel carries all four methods (2x2 grid); every surface is a
+             crop of the same decoded frame, so sync is a non-problem.
+             The reel stays in-layout at height 0: display:none or offscreen
+             makes WebKit stop delivering frames. -->
+        <video class="fa-reel" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"
+               data-critical data-src="static/videos/grid/flygrid_flowers.mp4"></video>
+        <canvas class="fa-wipe" width="956" height="630"
+                aria-label="Fly-through comparison, flowers scene"></canvas>
         <div class="fa-drop left" data-side="a"><span>replace <b class="fa-drop-name"></b></span></div>
         <div class="fa-drop right" data-side="b"><span>replace <b class="fa-drop-name"></b></span></div>
       </div>
@@ -341,12 +342,17 @@
       <span class="pe-iter">iteration 500</span>
     </div>
     <div class="pe-pair">
+      <!-- both methods live side by side in one reel; the two panes are
+           left/right crops of the same frame -->
+      <video class="pe-reel" muted playsinline preload="none" aria-hidden="true" tabindex="-1"></video>
       <div class="pe-frame">
-        <video muted playsinline preload="none" data-role="sad" aria-label="SAD training progress render"></video>
+        <canvas data-role="sad" width="1256" height="828"
+                aria-label="SAD training progress render"></canvas>
         <span class="pe-tag sad">SAD (ours)</span>
       </div>
       <div class="pe-frame">
-        <video muted playsinline preload="none" data-role="gs" aria-label="3DGS training progress render"></video>
+        <canvas data-role="gs" width="1256" height="828"
+                aria-label="3DGS training progress render"></canvas>
         <span class="pe-tag">3DGS</span>
       </div>
     </div>

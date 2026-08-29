@@ -37,12 +37,13 @@ robots meta line in `index.html` (marked with a comment) and delete
    SAD-vs-3DGS difference is largest among regions where SAD also beats
    the baseline against ground truth.
 6. Density map figure.
-7. Fly-through arena: 4 methods x 6 scenes, 24 videos. Two methods play
-   synchronized behind the slider; the others are bench tiles that can
-   be dragged onto either side (each tile also has swap buttons for
-   touch). A play/pause button freezes ring and bench at the same
-   timestamp. Swaps and scene switches while paused stay paused, with
-   the incoming video seeked to the frozen timestamp.
+7. Fly-through arena: 4 methods x 6 scenes. Each scene is one video
+   file with all four methods in a 2x2 grid; the wipe comparison and
+   the bench tiles are canvas crops of that single decoded frame, so
+   every surface is on the same frame by construction. Tiles can be
+   dragged onto either side (swap buttons for touch); a swap changes
+   crop offsets and is instant. One play/pause button drives the reel;
+   swaps and scene switches while paused keep the frozen frame.
 8. Training progress: SAD and 3DGS side by side, stepped through 11
    checkpoints (500 to 30,000 iterations) by a timeline scrubber, for
    four scenes.
@@ -70,32 +71,36 @@ asset_scripts/           render scripts and SLURM templates (own README)
 
 ## How the page works
 
-Loading. An overlay streams the hero video pair (about 26 MB as AV1)
-into blob URLs, then reveals the page. A skip button appears after 4
+Loading. An overlay streams the first scene's grid reel (about 28 MB)
+into a blob URL, then reveals the page. A skip button appears after 4
 seconds. Save-Data and 2G visitors skip the preload and get progressive
 playback, as does `file://`.
 
-Playback. Comparison pairs play from fully buffered blobs. A
-requestAnimationFrame loop corrects drift above 0.08 s; a watchdog
-restarts a pair that is visible but stuck. A pause from the button or
-from `prefers-reduced-motion` overrides all automatic play.
+Playback. One hidden video (the reel, kept in-layout at height 0)
+drives every arena surface: a requestVideoFrameCallback loop paints the
+wipe canvas and both tile canvases from the same decoded frame, so
+there is no synchronization to maintain and nothing can drift. Paused
+states repaint on demand; a muted micro play-pause after each attach
+makes Safari deliver the first frame. A pause from the button or from
+`prefers-reduced-motion` overrides all automatic play. The training
+explorer uses the same construction with SAD and 3DGS side by side in
+one file, keyframes at the 11 checkpoint timestamps.
 
 Codecs. AV1 is chosen per browser via `canPlayType`, per file, with
 H.264 fallback. If an AV1 blob fails to decode, the page drops AV1 for
 the session and refetches that file as H.264. Images use `<picture>`
 with AVIF and JPEG.
 
-Background loading. After the reveal: progress videos, then each
-scene's active pair, then bench videos. Two parallel streams run at
-`priority: "low"`, yield to user-initiated loads, abort on `pagehide`
-(keeps back/forward-cache eligibility), and resume on restore.
+Background loading. After the reveal: the explorer pair reels, then
+the other scenes' grid reels. The streams run at `priority: "low"`,
+park entirely while a user-initiated load is pending, abort on
+`pagehide` (keeps back/forward-cache eligibility), and resume on
+restore.
 
-Service worker. Caches HTML, CSS, JS, and images. The cache name is the
-deploy SHA; old caches are deleted on activation. GitHub Pages serves
-everything with `max-age=600` and no header control, so this is the
-only long-lived cache. Videos are not intercepted: Safari terminates
-service workers mid-download, which corrupted video fetches, so videos
-use the page's blob streaming plus the HTTP cache.
+Service worker: none. An earlier caching worker could pin Safari
+visitors to a stale deploy; the deployed `sw.js` is a tombstone that
+deletes caches and unregisters itself, asset URLs carry the deploy SHA,
+and the footer shows the build id.
 
 Explorer. Progress videos hold each checkpoint for 21 frames at 30 fps,
 final checkpoint 3x (273 frames). The scrubber seeks both videos to
@@ -175,15 +180,15 @@ npm test                          # unit + e2e
 ```
 
 Unit tests cover the core logic and repo contracts: referenced assets
-exist, CSP directives present, workflow SHA-pinned, AVIF and AV1 twins
-on disk, checkpoint math matching the rendered videos. Playwright runs
+exist, CSP directives present, workflow SHA-pinned, grid reels on
+disk, checkpoint math matching the rendered videos. Playwright runs
 three projects (desktop, Pixel 7, iPad with touch) covering the loader
-(including throttled network and missing files), slider
-drag/tap/keyboard, pair-sync drift across scrolling and loop
-boundaries, the arena (swap by button, synthetic and real mouse
-drag-and-drop, pause semantics including paused swaps), the explorer,
-the lightbox, an 11-width responsive matrix (320 to 1280 px), reduced
-motion, forced colors, and an axe gate.
+(including gated network and failing files), slider drag/tap/keyboard,
+canvas paint verification by pixel readback, the arena (swap by button,
+real mouse drag-and-drop, pause semantics including paused swaps and
+play-intent during loads, codec fallback and decode recovery), the
+explorer, the lightbox, an 11-width responsive matrix (320 to 1280 px),
+reduced motion, forced colors, and an axe gate.
 
 ## CI and deployment
 

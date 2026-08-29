@@ -41,6 +41,17 @@
     return path.replace("static/videos/", "static/videos/av1/");
   }
 
+  /* grid reels: every method view of one scene baked into a single file,
+     so all comparison surfaces are crops of the same decoded frame */
+  function gridPath(scene) {
+    return "static/videos/grid/flygrid_" + scene + ".mp4";
+  }
+  function progGridPath(scene) {
+    return "static/videos/grid/proggrid_" + scene + ".mp4";
+  }
+  /* [col, row] of each method inside the 2x2 arena grid */
+  var METHOD_QUADS = { sad: [0, 0], gs: [1, 0], mcmc: [0, 1], fds: [1, 1] };
+
   function flyPath(scene, method) {
     return "static/videos/flythrough_" + FLY_METHODS[method].file + "_" + scene + ".mp4";
   }
@@ -84,6 +95,9 @@
     FLY_METHODS: FLY_METHODS,
     FLY_SCENES: FLY_SCENES,
     flyPath: flyPath,
+    gridPath: gridPath,
+    progGridPath: progGridPath,
+    METHOD_QUADS: METHOD_QUADS,
     av1Path: av1Path,
     benchedMethods: benchedMethods,
     clamp: clamp,

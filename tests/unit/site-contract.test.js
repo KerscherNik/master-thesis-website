@@ -37,10 +37,9 @@ describe("progress explorer contract", () => {
     expect(+m[2]).toBe(core.CHECKPOINTS.length - 1);
   });
 
-  it("every progress-scene video exists on disk", () => {
-    for (const scene of Object.values(core.PROGRESS_SCENES)) {
-      expect(existsSync(resolve(ROOT, scene.sad))).toBe(true);
-      expect(existsSync(resolve(ROOT, scene.gs))).toBe(true);
+  it("every progress scene has its side-by-side pair reel on disk", () => {
+    for (const scene of Object.keys(core.PROGRESS_SCENES)) {
+      expect(existsSync(resolve(ROOT, core.progGridPath(scene)))).toBe(true);
     }
   });
 
@@ -91,31 +90,34 @@ describe("image variants", () => {
 });
 
 describe("codec variants", () => {
-  it("every H.264 video has an AV1 twin of plausible size", () => {
+  it("AV1 twins, where present, have a plausible size ratio", () => {
+    // AV1 is optional per file (the fetch falls back to H.264 on 404);
+    // grids ship H.264-only after AV1 measured LARGER on 4-up content
     const { readdirSync, statSync } = require("node:fs");
     const dir = resolve(ROOT, "static/videos");
-    const mp4s = readdirSync(dir).filter(f => f.endsWith(".mp4"));
-    expect(mp4s.length).toBeGreaterThan(20);
-    const missing = [], suspicious = [];
-    for (const f of mp4s) {
-      const twin = resolve(dir, "av1", f);
-      if (!existsSync(twin)) { missing.push(f); continue; }
-      const ratio = statSync(twin).size / statSync(resolve(dir, f)).size;
-      if (ratio <= 0.1 || ratio >= 1.1) suspicious.push(`${f} ratio ${ratio.toFixed(2)}`);
+    const suspicious = [];
+    for (const sub of ["", "grid/"]) {
+      const base = resolve(dir, sub);
+      if (!existsSync(base)) continue;
+      for (const f of readdirSync(base).filter(f => f.endsWith(".mp4"))) {
+        const twin = resolve(dir, "av1", sub, f);
+        if (!existsSync(twin)) continue;
+        const ratio = statSync(twin).size / statSync(resolve(base, f)).size;
+        if (ratio <= 0.1 || ratio >= 1.05) suspicious.push(`${sub}${f} ratio ${ratio.toFixed(2)}`);
+      }
     }
-    expect(missing).toEqual([]);
     expect(suspicious).toEqual([]);
   });
 });
 
 describe("fly-through arena contract", () => {
-  it("all 9 method x scene fly-through videos exist on disk", () => {
+  it("every scene has its grid reel, every progress scene its pair reel", () => {
     const missing = [];
     for (const scene of core.FLY_SCENES) {
-      for (const method of Object.keys(core.FLY_METHODS)) {
-        const p = core.flyPath(scene, method);
-        if (!existsSync(resolve(ROOT, p))) missing.push(p);
-      }
+      if (!existsSync(resolve(ROOT, core.gridPath(scene)))) missing.push(core.gridPath(scene));
+    }
+    for (const scene of Object.keys(core.PROGRESS_SCENES)) {
+      if (!existsSync(resolve(ROOT, core.progGridPath(scene)))) missing.push(core.progGridPath(scene));
     }
     expect(missing).toEqual([]);
   });

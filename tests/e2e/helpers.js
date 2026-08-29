@@ -7,25 +7,28 @@ async function pageReady(page) {
   await expect(page.locator("body")).not.toHaveClass(/loading/);
 }
 
-/** The fly-through comparison: the only .ba-compare that contains videos. */
-function videoPair(page) {
-  return page.locator(".ba-compare:has(video)").first();
+/** State of the arena reel — the one video driving every arena surface. */
+function reelState(page) {
+  return page.evaluate(() => {
+    const r = document.querySelector(".fa-compare .fa-reel");
+    return { rs: r.readyState, t: r.currentTime, paused: r.paused, rate: r.playbackRate };
+  });
 }
 
-/** Max |tA - tB| sampled over `ms`, ignoring momentary loop-wrap outliers. */
-async function sampleDrift(page, ms) {
-  return page.evaluate(async (ms) => {
-    const el = [...document.querySelectorAll(".ba-compare")].find(e => e.querySelector("video"));
-    const [a, b] = el.querySelectorAll("video");
-    let max = 0;
-    const t0 = performance.now();
-    while (performance.now() - t0 < ms) {
-      const d = Math.abs(a.currentTime - b.currentTime);
-      if (d < 4) max = Math.max(max, d); // a loop wrap shows as ~8 s for one frame
-      await new Promise(r => setTimeout(r, 250));
-    }
-    return max;
-  }, ms);
+/** Mean luminance (0-255) of a canvas; ~0 = nothing was ever painted. */
+function canvasLum(page, selector) {
+  return page.evaluate((selector) => {
+    const c = document.querySelector(selector);
+    if (!c) return -1;
+    const x = document.createElement("canvas");
+    x.width = 32; x.height = 24;
+    const g = x.getContext("2d");
+    g.drawImage(c, 0, 0, 32, 24);
+    const d = g.getImageData(0, 0, 32, 24).data;
+    let s = 0;
+    for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
+    return Math.round(s / (d.length / 4) / 3);
+  }, selector);
 }
 
-module.exports = { pageReady, videoPair, sampleDrift };
+module.exports = { pageReady, reelState, canvasLum };

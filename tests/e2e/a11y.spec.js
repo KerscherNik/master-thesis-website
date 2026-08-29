@@ -79,17 +79,14 @@ test("prefers-reduced-motion stops all video autoplay until explicit play", asyn
   await pageReady(page);
   await page.locator("#flythrough-arena").scrollIntoViewIfNeeded();
   await page.waitForTimeout(2500);
-  const state = await page.evaluate(() =>
-    [...document.querySelectorAll(".fa-compare video, .fa-bench video")].map(v => v.paused));
-  expect(state.every(Boolean)).toBe(true);
+  expect(await page.evaluate(() =>
+    document.querySelector(".fa-compare .fa-reel").paused)).toBe(true);
   await expect(page.locator(".fa-compare .ba-playpause")).toHaveAttribute("aria-label", /Play/);
 
   // explicit play overrides the preference (per WCAG/Apple pattern)
   await page.locator(".fa-compare .ba-playpause").click();
-  await expect.poll(() => page.evaluate(() => {
-    const [a, b] = document.querySelectorAll(".fa-compare video");
-    return !a.paused && !b.paused;
-  }), { timeout: 20000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() =>
+    !document.querySelector(".fa-compare .fa-reel").paused), { timeout: 20000 }).toBe(true);
 });
 
 test("forced-colors mode keeps the comparison structure visible", async ({ page }) => {

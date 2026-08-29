@@ -44,7 +44,13 @@
     AV1 = document.createElement("video")
       .canPlayType('video/mp4; codecs="av01.0.08M.08"') !== "";
   } catch (e) { /* keep H.264 */ }
-  function netPath(p) { return AV1 ? core.av1Path(p) : p; }
+  function netPath(p) {
+    /* grid reels ship H.264-only (AV1 measured LARGER on 4-up content);
+       asking for a twin that intentionally does not exist would only put
+       a 404 in every visitor's console */
+    if (p.indexOf("/grid/") !== -1) return p;
+    return AV1 ? core.av1Path(p) : p;
+  }
   /* runtime canary: if an AV1 blob errors in the element, drop AV1 for the
      whole session and refetch that file as H.264 */
   var blobCodec = {}; /* path -> "av1" | "h264" */
@@ -143,9 +149,10 @@
     if (!ev.persisted) return;
     if ("AbortController" in window) bgAborter = new AbortController();
     bgResumers.splice(0).forEach(function (resume) { resume(); });
-    /* the browser paused all media on entering the bfcache; the ring's
-       watchdog self-heals, bench and slots need the nudge */
-    document.querySelectorAll(".fa-bench, .video-slot").forEach(function (el) {
+    /* the browser paused all media on entering the bfcache; nudge the
+       arena reel and the slot videos back (the explorer reel is seek-only
+       and stays paused by design) */
+    document.querySelectorAll(".fa-compare, .video-slot").forEach(function (el) {
       if (el._userPaused || el._visible === false) return;
       el.querySelectorAll("video").forEach(function (v) {
         if (v.readyState >= 2) v.play().catch(function () {});
@@ -236,9 +243,10 @@
     var lazyVids = [].slice.call(document.querySelectorAll("video[data-src]:not([data-critical])"));
     /* progress-explorer videos stream progressively until their background
        blobs arrive, so only the hero pair blocks the reveal */
-    var extraPaths = [];
-    Object.keys(core.PROGRESS_SCENES).forEach(function (s) {
-      extraPaths.push(core.PROGRESS_SCENES[s].sad, core.PROGRESS_SCENES[s].gs);
+    /* the explorer fetches its current scene itself; queue every scene's
+       pair reel (in-flight dedupe makes the overlap free) */
+    var extraPaths = Object.keys(core.PROGRESS_SCENES).map(function (sc) {
+      return core.progGridPath(sc);
     });
 
     var revealed = false;
@@ -691,7 +699,12 @@
       if (ready >= vids.length) done();
     }
 
-    openLightbox = function (build, captionText) {
+    var onCloseHook = null;
+    var exemptVideo = null;
+    openLightbox = function (build, captionText, opts) {
+      opts = opts || {};
+      onCloseHook = opts.onClose || null;
+      exemptVideo = opts.exempt || null; /* fn(video) -> keep it playing */
       stage.innerHTML = "";
       build(stage);
       spinUntilLoaded(stage);
@@ -706,7 +719,10 @@
          watchdog cannot resume them under the modal */
       pausedPairs = [];
       document.querySelectorAll("video").forEach(function (v) {
-        if (!lb.contains(v) && !v.paused) { pausedPairs.push(v); v.pause(); }
+        if (lb.contains(v) || v.paused) return;
+        if (exemptVideo && exemptVideo(v)) return; /* a reel driving lb canvases */
+        pausedPairs.push(v);
+        v.pause();
       });
       heldPairs = [];
       document.querySelectorAll(".ba-compare").forEach(function (el) {
@@ -733,6 +749,9 @@
       heldPairs = [];
       pausedPairs.forEach(function (v) { v.play().catch(function () {}); });
       pausedPairs = [];
+      if (onCloseHook) { try { onCloseHook(); } catch (e) { /* ignore */ } }
+      onCloseHook = null;
+      exemptVideo = null;
     };
     lb.addEventListener("click", function (ev) {
       if (ev.target === lb || ev.target.closest(".lb-close")) closeLightbox();
@@ -916,89 +935,225 @@
 
   /* ---------- fly-through arena ---------- */
 
+  /* One hidden reel per scene carries all four methods in a 2x2 grid; the
+     wipe, the bench tiles and the lightbox are canvas crops of the SAME
+     decoded frame. Sync is correct by construction (see
+     docs/research/rebuild-design.md); swaps are crop-offset changes and
+     cost nothing. */
   function initArena() {
     var root = document.getElementById("flythrough-arena");
     if (!root) return;
     var cmp = root.querySelector(".fa-compare");
-    var sideVids = cmp.querySelectorAll("video"); /* [a, b], moved by initCompare */
-    var vA = sideVids[0], vB = sideVids[1];
+    var reel = cmp.querySelector(".fa-reel");
+    var wipe = cmp.querySelector(".fa-wipe");
+    var ctx = wipe.getContext("2d");
     var benchEl = root.querySelector(".fa-bench");
     var tabs = [].slice.call(root.querySelectorAll("[data-fly-scene]"));
     var zones = [].slice.call(root.querySelectorAll(".fa-drop"));
-    var RATE = parseFloat(cmp.getAttribute("data-rate")) || 0;
+    var RATE = parseFloat(cmp.getAttribute("data-rate")) || 1;
+    var QUADS = core.METHOD_QUADS;
+
+    reel.defaultPlaybackRate = RATE;
+    reel.playbackRate = RATE;
+    reel.loop = true;
 
     var scene = "flowers", left = "sad", right = "gs";
+    var frac = 0.5;                    /* wipe split, 0..1 */
+    var userPaused = reducedMotion();  /* an explicit pause outranks all */
     var dragged = null;
-    benchEl._userPaused = reducedMotion(); /* tiles wait for explicit play too */
+    cmp._userPaused = userPaused;      /* initVisibility respects this */
 
     function label(m) { return core.FLY_METHODS[m].label; }
     function benched() { return core.benchedMethods(left, right); }
-
-    function syncTexts() {
-      var la = cmp.querySelector(".ba-label.a");
-      var lb = cmp.querySelector(".ba-label.b");
-      if (la) la.textContent = label(left);
-      if (lb) lb.textContent = label(right);
-      root.querySelector(".fa-drop.left .fa-drop-name").textContent = label(left);
-      root.querySelector(".fa-drop.right .fa-drop-name").textContent = label(right);
-      var hd = cmp.querySelector(".ba-handle");
-      if (hd) {
-        hd.setAttribute("aria-label",
-          "Comparison slider: " + label(left) + " versus " + label(right) + ", " + scene + " scene");
-      }
-      vA.setAttribute("aria-label", label(left) + " fly-through, " + scene + " scene");
-      vB.setAttribute("aria-label", label(right) + " fly-through, " + scene + " scene");
-      if (cmp._compare) {
-        cmp._compare.srcs = [core.flyPath(scene, left), core.flyPath(scene, right)];
-        cmp._compare.labels = [label(left), label(right)];
-      }
+    function quadRect(m) {
+      var q = QUADS[m];
+      var qw = reel.videoWidth / 2, qh = reel.videoHeight / 2;
+      return { x: q[0] * qw, y: q[1] * qh, w: qw, h: qh };
     }
 
-    function attachSide(v, path) {
-      /* a newer attach supersedes a pending one on the same element */
-      v._gen = (v._gen || 0) + 1;
-      var gen = v._gen;
-      if (v._sideDone) { /* the superseded attach will never complete */
-        v.removeEventListener("loadeddata", v._sideDone);
-        v._sideDone = null;
-        cmp._loadHoldDown();
-        demandDown();
+    /* ---- painting ---- */
+    var tilePainters = [];
+    var lbPainter = null;
+    function paintWipe() {
+      var cw = wipe.width, ch = wipe.height;
+      var L = quadRect(left), R = quadRect(right);
+      var split = Math.round(cw * frac);
+      if (split > 0) {
+        ctx.drawImage(reel, L.x, L.y, L.w * frac, L.h, 0, 0, split, ch);
       }
-      cmp._loadHoldUp(); /* veil + held pair, shared with error recovery */
-      demandUp(); /* parks the background chains for the duration */
-      v.style.opacity = "0.25";
-      var done = function () {
-        v.removeEventListener("loadeddata", done);
-        if (v._sideDone === done) v._sideDone = null;
-        v.style.opacity = "";
-        demandDown();
-        if (isPaused() && pausedAlignT != null) ensureSeek(v, pausedAlignT);
-        cmp._loadHoldDown(); /* releasing applies the recorded intent */
-      };
-      v._sideDone = done;
-      v.addEventListener("loadeddata", done);
-      fetchToBlob(path).then(function (url) {
-        if (v._gen !== gen) return; /* superseded by a newer swap/scene */
-        attachSrc(v, url);
-      }).catch(function () {
-        if (v._gen !== gen) return;
-        /* transient (SW killed, network blip): one retry, then give up
-           quietly - the previous frame stays, nothing is destroyed */
-        setTimeout(function () {
-          if (v._gen !== gen) return;
-          fetchToBlob(path).then(function (url) {
-            if (v._gen !== gen) return;
-            attachSrc(v, url);
-          }).catch(function () {
-            if (v._gen !== gen) return;
-            v.style.opacity = "";
-            demandDown();
-            cmp._loadHoldDown();
-          });
-        }, 1200);
+      if (split < cw) {
+        ctx.drawImage(reel, R.x + R.w * frac, R.y, R.w * (1 - frac), R.h,
+                      split, 0, cw - split, ch);
+      }
+    }
+    function paintAll() {
+      if (reel.readyState < 2) return;
+      try { paintWipe(); } catch (e) { /* keep going */ }
+      tilePainters.forEach(function (p) { try { p(); } catch (e) { /* ditto */ } });
+      if (lbPainter) { try { lbPainter(); } catch (e) { /* ditto */ } }
+    }
+    /* rVFC paints exactly when a frame is presented; rAF is the fallback.
+       Paused states repaint on demand - a canvas keeps its last pixels. */
+    var useRVFC = typeof reel.requestVideoFrameCallback === "function";
+    function loop() { paintAll(); schedule(); }
+    function schedule() {
+      if (useRVFC) reel.requestVideoFrameCallback(loop);
+      else requestAnimationFrame(loop);
+    }
+    schedule();
+    /* double-paint after seeks and loads: WebKit has served stale frames */
+    function paintSoon() { paintAll(); setTimeout(paintAll, 80); }
+    reel.addEventListener("seeked", paintSoon);
+
+    /* ---- slider chrome (canvas-backed port of the DOM wipe) ---- */
+    var divider = document.createElement("div");
+    divider.className = "ba-divider";
+    var handle = document.createElement("div");
+    handle.className = "ba-handle";
+    handle.innerHTML = ARROWS;
+    cmp.appendChild(divider);
+    cmp.appendChild(handle);
+    var labelEls = {};
+    ["a", "b"].forEach(function (side) {
+      var el = document.createElement("span");
+      el.className = "ba-label " + side;
+      cmp.appendChild(el);
+      labelEls[side] = el;
+    });
+    handle.setAttribute("tabindex", "0");
+    handle.setAttribute("role", "slider");
+    handle.setAttribute("aria-valuemin", "0");
+    handle.setAttribute("aria-valuemax", "100");
+
+    function applySlider() {
+      var pos = 100 * frac;
+      divider.style.left = pos + "%";
+      handle.style.left = pos + "%";
+      handle.setAttribute("aria-valuenow", Math.round(pos));
+      handle.setAttribute("aria-valuetext",
+        Math.round(pos) + "% " + label(left) + ", " +
+        (100 - Math.round(pos)) + "% " + label(right));
+      if (reel.paused) paintAll();
+    }
+    function fromEvent(ev) {
+      var rect = wipe.getBoundingClientRect();
+      var x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left;
+      frac = clamp(x / rect.width, 0, 1);
+      applySlider();
+    }
+    var draggingSlider = false;
+    cmp.addEventListener("pointerdown", function (ev) {
+      if (ev.target.closest && ev.target.closest(".ba-playpause, .ba-expand, .fa-drop")) return;
+      draggingSlider = true;
+      if (cmp.setPointerCapture) cmp.setPointerCapture(ev.pointerId);
+      fromEvent(ev);
+    });
+    cmp.addEventListener("pointermove", function (ev) { if (draggingSlider) fromEvent(ev); });
+    ["pointerup", "pointercancel"].forEach(function (t) {
+      cmp.addEventListener(t, function () { draggingSlider = false; });
+    });
+    handle.addEventListener("keydown", function (ev) {
+      if (ev.key === "ArrowLeft") { frac = clamp(frac - 0.02, 0, 1); applySlider(); ev.preventDefault(); }
+      if (ev.key === "ArrowRight") { frac = clamp(frac + 0.02, 0, 1); applySlider(); ev.preventDefault(); }
+    });
+
+    /* ---- one element, one play state ---- */
+    var pp = document.createElement("button");
+    pp.type = "button";
+    pp.className = "ba-playpause";
+    pp.addEventListener("pointerdown", function (ev) { ev.stopPropagation(); });
+    pp.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      setPaused(!userPaused);
+    });
+    cmp.appendChild(pp);
+    cmp._ppBtn = pp;
+    function syncButton() {
+      pp.innerHTML = userPaused ? PLAY : PAUSE;
+      pp.setAttribute("aria-label", userPaused ? "Play the fly-through" : "Pause the fly-through");
+    }
+    function setPaused(p) {
+      userPaused = p;
+      cmp._userPaused = p;
+      syncButton();
+      if (userPaused) { reel.pause(); paintAll(); }
+      else if (!pendingLoad && reel.readyState >= 2) reel.play().catch(function () {});
+      /* loading or not ready: intent is recorded and the loadeddata
+         handler applies it when the new reel arrives - the stale frame
+         must never start moving behind the veil */
+    }
+    syncButton();
+    if (REDUCED.addEventListener) {
+      REDUCED.addEventListener("change", function () {
+        if (REDUCED.matches && !userPaused) setPaused(true);
       });
     }
 
+    /* ---- enlarge: big canvases driven by the same reel ---- */
+    function reelExempt(v) { return v === reel; }
+    function openQuadLightbox(m) {
+      openLightbox(function (stage) {
+        var c = document.createElement("canvas");
+        c.width = reel.videoWidth / 2 || 956;
+        c.height = reel.videoHeight / 2 || 630;
+        c.className = "lb-canvas";
+        c.setAttribute("role", "img");
+        c.setAttribute("aria-label", label(m) + " fly-through, " + scene + " scene");
+        stage.appendChild(c);
+        var cctx = c.getContext("2d");
+        lbPainter = function () {
+          var r = quadRect(m);
+          cctx.drawImage(reel, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height);
+        };
+        c.addEventListener("click", function () { setPaused(!userPaused); });
+        paintSoon();
+      }, label(m) + " — " + scene + " (click the image to play or pause)",
+      { exempt: reelExempt, onClose: function () { lbPainter = null; } });
+    }
+    function openWipeLightbox() {
+      openLightbox(function (stage) {
+        var c = document.createElement("canvas");
+        c.width = reel.videoWidth / 2 || 956;
+        c.height = reel.videoHeight / 2 || 630;
+        c.className = "lb-canvas";
+        c.setAttribute("role", "img");
+        c.setAttribute("aria-label",
+          label(left) + " versus " + label(right) + ", " + scene + " scene");
+        stage.appendChild(c);
+        var cctx = c.getContext("2d");
+        lbPainter = function () {
+          var cw = c.width, ch = c.height;
+          var L = quadRect(left), R = quadRect(right);
+          var split = Math.round(cw * frac);
+          if (split > 0) cctx.drawImage(reel, L.x, L.y, L.w * frac, L.h, 0, 0, split, ch);
+          if (split < cw) cctx.drawImage(reel, R.x + R.w * frac, R.y, R.w * (1 - frac), R.h,
+                                         split, 0, cw - split, ch);
+          cctx.fillStyle = "#fff";
+          cctx.fillRect(split - 1, 0, 2, ch);
+        };
+        c.addEventListener("pointerdown", function (ev) {
+          var rect = c.getBoundingClientRect();
+          frac = clamp((ev.clientX - rect.left) / rect.width, 0, 1);
+          applySlider();
+          paintAll();
+        });
+        paintSoon();
+      }, label(left) + " versus " + label(right) + " — " + scene + " (drag to compare)",
+      { exempt: reelExempt, onClose: function () { lbPainter = null; } });
+    }
+    var ex = document.createElement("button");
+    ex.type = "button";
+    ex.className = "ba-expand";
+    ex.innerHTML = EXPAND;
+    ex.setAttribute("aria-label", "Enlarge comparison");
+    ex.addEventListener("pointerdown", function (ev) { ev.stopPropagation(); });
+    ex.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      openWipeLightbox();
+    });
+    cmp.appendChild(ex);
+
+    /* ---- bench: two tiles, each a crop of the reel ---- */
     function makeTile(m) {
       var tile = document.createElement("div");
       tile.className = "fa-tile";
@@ -1006,7 +1161,7 @@
       tile.setAttribute("data-method", m);
       tile.innerHTML =
         '<div class="fa-tile-media">' +
-        '<video muted loop playsinline preload="none"></video>' +
+        '<canvas width="478" height="315"></canvas>' +
         '<span class="spinner" aria-hidden="true"></span></div>' +
         '<div class="fa-tile-side"><span class="fa-tile-name"></span>' +
         '<div class="fa-tile-actions">' +
@@ -1014,82 +1169,15 @@
         '<button type="button" class="fa-swap" data-side="b" title="Swap into right side" aria-label="Swap into right side">&#9654;</button>' +
         "</div></div>";
       tile.querySelector(".fa-tile-name").textContent = label(m);
-
-      function whenRevealed(fn) {
-        if (criticalPhaseDone) fn();
-        else document.addEventListener("critical-assets", fn, { once: true });
-      }
-      var tv = tile.querySelector("video");
-      tv._recovered = 0;
-      tv.addEventListener("error", function () {
-        var path = core.flyPath(scene, m);
-        tile.classList.remove("loaded"); /* spinner back while recovering */
-        if (tv._recovered < 1) {
-          tv._recovered += 1;
-          revokeAV1(path);
-          delete blobs[path];
-          fetchToBlob(path).then(function (url) { attachSrc(tv, url); })
-            .catch(function () { markTileUnavailable(); });
-        } else {
-          markTileUnavailable();
-        }
+      var tc = tile.querySelector("canvas");
+      tc.setAttribute("role", "img");
+      tc.setAttribute("aria-label", label(m) + " fly-through preview, " + scene + " scene");
+      var tctx = tc.getContext("2d");
+      tilePainters.push(function () {
+        var r = quadRect(m);
+        tctx.drawImage(reel, r.x, r.y, r.w, r.h, 0, 0, tc.width, tc.height);
       });
-      function markTileUnavailable() {
-        tile.classList.remove("loaded");
-        tile.classList.add("fa-unavailable");
-        tile.setAttribute("draggable", "false");
-        tile.querySelectorAll(".fa-swap").forEach(function (b) { b.disabled = true; });
-        tile.querySelector(".fa-tile-name").textContent = label(m) + " — not available";
-      }
-      tv.setAttribute("aria-label", label(m) + " fly-through preview, " + scene + " scene");
-      if (RATE) { tv.defaultPlaybackRate = RATE; tv.playbackRate = RATE; }
-      /* permanent, not once: every (re)attach lands here — first load, AV1
-         canary recovery, late arrival on a slow link — and joins the tile to
-         the ring's clock and play state instead of leaving it stuck */
-      tv.addEventListener("loadeddata", function () {
-        tile.classList.add("loaded");
-        /* a loaded tile must never sit black: Safari paints no frame until
-           a seek or a play. Playing tiles get a one-shot align (ensureSeek
-           would keep yanking them back to a stale target); paused, offscreen
-           or autoplay-denied tiles get the retrying seek so a frame paints. */
-        if (!isPaused() && benchEl._visible !== false) {
-          /* the ring's wrap recipe: exact seek while still paused, play the
-             moment it lands (never seek a playing video); the nudge loop
-             converges the seek-latency residual */
-          var target = ringTime();
-          if (Math.abs(tv.currentTime - target) < 0.05) {
-            tv.play().catch(function () {});
-          } else {
-            tv._lastSnap = Date.now(); /* the join seek counts as a snap */
-            var onJoin = function () {
-              tv.removeEventListener("seeked", onJoin);
-              if (!isPaused() && benchEl._visible !== false) tv.play().catch(function () {});
-            };
-            tv.addEventListener("seeked", onJoin);
-            try { tv.currentTime = target; } catch (e) {
-              tv.removeEventListener("seeked", onJoin);
-              tv.play().catch(function () {});
-            }
-          }
-        } else {
-          paintPausedFrame(tv, ringTime());
-        }
-      });
-      function tileFetch() {
-        /* a pending on-demand load (scene switch, swap) owns the network;
-           the bench follows once the ring is served — and holds the gate
-           itself so the background chains don't race the visible tiles */
-        if (demandBusy()) { setTimeout(tileFetch, 300); return; }
-        demandUp();
-        fetchToBlob(core.flyPath(scene, m)).then(function (url) {
-          demandDown();
-          attachSrc(tv, url);
-        }).catch(function () { demandDown(); markTileUnavailable(); });
-      }
-      whenRevealed(tileFetch);
-
       tile.addEventListener("dragstart", function (ev) {
-        if (tile.classList.contains("fa-unavailable")) { ev.preventDefault(); return; }
         dragged = m;
         if (ev.dataTransfer) {
           ev.dataTransfer.setData("text/plain", m);
@@ -1105,144 +1193,48 @@
         b.addEventListener("click", function () { swap(b.getAttribute("data-side"), m); });
       });
       tile.querySelector(".fa-tile-media").addEventListener("click", function () {
-        if (tile.classList.contains("fa-unavailable")) return;
-        openVideoLightbox(core.flyPath(scene, m), label(m) + " — " + scene, RATE,
-          { paused: isPaused(), time: ringTime() });
+        openQuadLightbox(m);
       });
       return tile;
     }
-
+    function refreshTilesLoaded() {
+      var ok = reel.readyState >= 2;
+      benchEl.querySelectorAll(".fa-tile").forEach(function (t) {
+        t.classList.toggle("loaded", ok);
+      });
+    }
     function buildBench() {
       benchEl.innerHTML = "";
+      tilePainters = [];
       benched().forEach(function (m) { benchEl.appendChild(makeTile(m)); });
+      refreshTilesLoaded();
     }
 
-    /* one playback state for the whole arena: pausing freezes the ring AND
-       the bench at the same moment on the shared camera path; swaps and
-       scene switches while paused stay paused, with the reloaded videos
-       frame-aligned to the paused timestamp */
-    var pausedAlignT = null;
-    function isPaused() { return !!(cmp._pair && cmp._pair.isUserPaused()); }
-    function ringTime() {
-      return pausedAlignT != null ? pausedAlignT : (vB.currentTime || vA.currentTime || 0);
+    /* ---- swaps: crop-offset changes, instant, nothing to load ---- */
+    function syncTexts() {
+      labelEls.a.textContent = label(left);
+      labelEls.b.textContent = label(right);
+      root.querySelector(".fa-drop.left .fa-drop-name").textContent = label(left);
+      root.querySelector(".fa-drop.right .fa-drop-name").textContent = label(right);
+      handle.setAttribute("aria-label",
+        "Comparison slider: " + label(left) + " versus " + label(right) + ", " + scene + " scene");
+      wipe.setAttribute("aria-label",
+        label(left) + " versus " + label(right) + " fly-through, " + scene + " scene");
+      applySlider();
     }
-    /* recovery re-attaches bypass attachSide: whatever lands in a ring
-       video while the arena is paused must sit on the paused frame, and
-       Safari needs the seek to paint anything at all */
-    [vA, vB].forEach(function (v) {
-      v.addEventListener("loadeddata", function () {
-        if (isPaused()) paintPausedFrame(v, ringTime());
-      });
-    });
-    /* keep playing tiles converged on the ring's clock the way the ring
-       keeps its own pair converged: playbackRate nudges, never seeks on a
-       playing video (a seek always lands behind the moving target and
-       chasing it pins readyState). Wrap-scale gaps get one exact seek
-       with the tile paused, then resume. */
-    setInterval(function () {
-      if (benchEl._visible === false || isPaused() ||
-          !cmp._pair || cmp._pair.isHeld()) return;
-      var ref = ringTime();
-      var base = RATE || 1;
-      benchEl.querySelectorAll(".fa-tile.loaded video").forEach(function (v) {
-        if (v.paused || v.readyState < 2 || v.seeking) return;
-        var d = v.currentTime - ref;
-        /* previews can converge harder than the ring: a strong rate nudge
-           closes medium gaps WHILE PLAYING (a snap always lands one
-           seek-latency behind, so snapping medium gaps on a slow machine
-           livelocks); the paused exact snap is only for wrap-scale gaps */
-        if (Math.abs(d) > 1.5 && Date.now() - (v._lastSnap || 0) > 1200) {
-          v._lastSnap = Date.now();
-          v.pause();
-          var onSeeked = function () {
-            v.removeEventListener("seeked", onSeeked);
-            v.play().catch(function () {});
-          };
-          v.addEventListener("seeked", onSeeked);
-          try { v.currentTime = ringTime(); } catch (e) {
-            v.removeEventListener("seeked", onSeeked);
-            v.play().catch(function () {});
-          }
-        } else if (Math.abs(d) > 0.06) {
-          var adj = Math.max(-0.35, Math.min(0.35, d * 0.9));
-          v.playbackRate = base * (1 - adj);
-        } else if (v.playbackRate !== base) {
-          v.playbackRate = base;
-        }
-      });
-    }, 400);
-
-    function syncBenchPlayState() {
-      var paused = isPaused();
-      benchEl._userPaused = paused;
-      var t = ringTime();
-      benchEl.querySelectorAll("video").forEach(function (v) {
-        if (paused) {
-          v.pause();
-          ensureSeek(v, t);
-        } else if (benchEl._visible !== false) {
-          v.play().catch(function () {});
-        }
-      });
-      if (!paused) pausedAlignT = null;
-    }
-    /* capture phase: the button's own handler stops propagation, but capture
-       runs first; the deferred sync then reads the already-toggled state */
-    cmp.addEventListener("click", function (ev) {
-      if (!ev.target.closest || !ev.target.closest(".ba-playpause")) return;
-      setTimeout(syncBenchPlayState, 0);
-    }, true);
-    /* bench watchdog, the tiles' version of the ring's: a loaded, visible
-       tile must share the arena's play state (missed events, rejected
-       play() calls, recovery re-attaches). Held = lightbox open or a side
-       reloading; everything stays frozen then. */
-    setInterval(function () {
-      if (benchEl._visible === false || !cmp._pair || cmp._pair.isHeld()) return;
-      var paused = isPaused();
-      benchEl.querySelectorAll(".fa-tile.loaded video").forEach(function (v) {
-        if (v.readyState < 2) return;
-        if (paused && !v.paused) {
-          v.pause();
-          ensureSeek(v, ringTime());
-        } else if (!paused && v.paused) {
-          v.play().catch(function () {});
-        }
-      });
-    }, 2000);
-
     function swap(side, m) {
       if (!m || m === left || m === right) return;
-      if (isPaused()) pausedAlignT = (side === "a" ? vB : vA).currentTime;
       if (side === "a") left = m; else right = m;
       syncTexts();
-      attachSide(side === "a" ? vA : vB, core.flyPath(scene, m));
       buildBench();
+      paintAll();
     }
-
-    function setScene(s) {
-      if (s === scene) return;
-      if (isPaused()) pausedAlignT = vB.currentTime;
-      scene = s;
-      tabs.forEach(function (b) {
-        var on = b.getAttribute("data-fly-scene") === s;
-        b.classList.toggle("active", on);
-        b.setAttribute("aria-selected", on ? "true" : "false");
-      });
-      syncTexts();
-      attachSide(vA, core.flyPath(scene, left));
-      attachSide(vB, core.flyPath(scene, right));
-      buildBench();
-    }
-
-    tabs.forEach(function (b) {
-      b.addEventListener("click", function () { setScene(b.getAttribute("data-fly-scene")); });
-    });
 
     zones.forEach(function (z) {
       z.addEventListener("dragover", function (ev) {
         ev.preventDefault();
-        if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
         z.classList.add("over");
+        if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
       });
       z.addEventListener("dragleave", function () { z.classList.remove("over"); });
       z.addEventListener("drop", function (ev) {
@@ -1254,26 +1246,99 @@
       });
     });
 
-    /* the two ring videos arrive via the loader (data-critical); the bench
-       and the other scenes are fetched in the background afterwards */
-    buildBench(); /* tiles with spinners from the first paint */
-    document.addEventListener("critical-assets", function () {
+    /* ---- reel loading: the veil owns the truth ---- */
+    var pendingLoad = null;
+    function beginLoad(path) {
+      if (pendingLoad) pendingLoad.cancel();
+      var my = { canceled: false };
+      my.onLoaded = function () {
+        reel.removeEventListener("loadeddata", my.onLoaded);
+        if (my.canceled) return;
+        my.canceled = true;
+        pendingLoad = null;
+        demandDown();
+        cmp.classList.remove("fa-loading");
+      };
+      my.cancel = function () {
+        if (my.canceled) return;
+        my.canceled = true;
+        reel.removeEventListener("loadeddata", my.onLoaded);
+        demandDown();
+      };
+      pendingLoad = my;
+      cmp.classList.add("fa-loading");
+      demandUp();
+      fetchToBlob(path).then(function (url) {
+        if (my.canceled) return;
+        reel.addEventListener("loadeddata", my.onLoaded);
+        attachSrc(reel, url);
+      }).catch(function () {
+        if (my.canceled) return;
+        my.cancel();
+        cmp.classList.remove("fa-loading");
+        /* the canvases keep the previous frame - nothing goes black */
+      });
+    }
+
+    /* every (re)attach lands here: apply the current intent, prime Safari
+       (a never-played element yields no frames, even to canvas), paint */
+    reel.addEventListener("loadeddata", function () {
+      refreshTilesLoaded();
+      if (!userPaused && cmp._visible !== false) {
+        reel.play().catch(function () { paintSoon(); });
+        paintSoon();
+      } else {
+        var pr = reel.play();
+        if (pr && pr.then) {
+          pr.then(function () { reel.pause(); paintSoon(); })
+            .catch(function () { paintSoon(); });
+        } else {
+          reel.pause();
+          paintSoon();
+        }
+      }
+    });
+
+    /* AV1 canary: decode error -> refetch the H.264 grid behind the veil */
+    reel._recovered = 0;
+    reel.addEventListener("error", function () {
+      if (reel._recovered >= 2) return;
+      reel._recovered += 1;
+      var path = core.gridPath(scene);
+      revokeAV1(path);
+      delete blobs[path];
+      beginLoad(path);
+    });
+
+    /* ---- scenes: one file each, position carried over ---- */
+    function setScene(s) {
+      if (s === scene) return;
+      scene = s;
+      reel._keepT = reel.currentTime || 0; /* same camera path: keep position */
+      tabs.forEach(function (b) {
+        var on = b.getAttribute("data-fly-scene") === s;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
       syncTexts();
-      /* background prefetch, ring videos of every scene before bench videos:
-         a scene tab click most likely needs the current left/right methods */
-      var rest = [];
-      function push(p) { if (!blobs[p] && rest.indexOf(p) < 0) rest.push(p); }
-      /* the bench tiles of the CURRENT scene are on screen right now;
-         everything else comes after */
-      core.benchedMethods(left, right).forEach(function (m) { push(core.flyPath(scene, m)); });
-      core.FLY_SCENES.forEach(function (s) {
-        [left, right].forEach(function (m) { push(core.flyPath(s, m)); });
-      });
-      core.FLY_SCENES.forEach(function (s) {
-        Object.keys(core.FLY_METHODS).forEach(function (m) { push(core.flyPath(s, m)); });
-      });
-      /* two parallel streams, but yield entirely while the user waits on an
-         on-demand load (scene switch / swap) so it gets the bandwidth */
+      buildBench(); /* fresh aria labels; spinners until the reel is ready */
+      beginLoad(core.gridPath(s));
+    }
+    reel.addEventListener("loadeddata", function () {
+      if (reel._keepT) { ensureSeek(reel, reel._keepT); reel._keepT = 0; }
+    });
+    tabs.forEach(function (b) {
+      b.addEventListener("click", function () { setScene(b.getAttribute("data-fly-scene")); });
+    });
+
+    /* ---- boot + background prefetch of the other scenes ---- */
+    buildBench();
+    syncTexts();
+    document.addEventListener("critical-assets", function () {
+      /* the flowers reel arrived with the loader; fetch the rest behind
+         the demand gate, one at a time */
+      var rest = core.FLY_SCENES.filter(function (s) { return s !== scene; })
+        .map(core.gridPath).filter(function (p) { return !blobs[p]; });
       function next() {
         if (!rest.length) return;
         if (demandBusy()) { setTimeout(next, 400); return; }
@@ -1283,19 +1348,20 @@
         }).then(function (state) { if (state !== "parked") next(); });
       }
       next();
-      next();
     }, { once: true });
-
-    syncTexts();
   }
 
   /* ---------- training-progress explorer ---------- */
 
+  /* SAD and 3DGS live side by side in one reel per scene; the two panes are
+     left/right crops of the same frame, so a checkpoint seek is a single
+     currentTime assignment that cannot diverge. */
   function initProgressExplorer() {
     var root = document.getElementById("progress-explorer");
     if (!root) return;
-    var vSad = root.querySelector('video[data-role="sad"]');
-    var vGs = root.querySelector('video[data-role="gs"]');
+    var reel = root.querySelector(".pe-reel");
+    var cSad = root.querySelector('canvas[data-role="sad"]');
+    var cGs = root.querySelector('canvas[data-role="gs"]');
     var slider = root.querySelector('input[type="range"]');
     var label = root.querySelector(".pe-iter");
     var playBtn = root.querySelector(".pe-play");
@@ -1305,48 +1371,102 @@
 
     playBtn.innerHTML = PLAY;
 
-    /* honest loading state: a spinner over each frame until the attached
-       sources have data — scene switches on slow links are otherwise a
-       silent freeze on the previous frame */
+    /* spinners over each pane while the reel has no data */
     root.querySelectorAll(".pe-frame").forEach(function (f) {
       var sp = document.createElement("span");
       sp.className = "spinner";
       sp.setAttribute("aria-hidden", "true");
       f.appendChild(sp);
     });
-    function updateSpin() {
-      var ok = vSad.readyState >= 2 && vGs.readyState >= 2;
-      root.classList.toggle("pe-loading", !ok);
-    }
-    /* permanent: any later (re)load — a blob upgrade, a recovery after an
-       aborted progressive fetch — must re-evaluate the loading state */
-    [vSad, vGs].forEach(function (v) {
-      v.addEventListener("loadeddata", updateSpin);
-      v.addEventListener("error", updateSpin);
-    });
 
-    /* tick marks under the slider; labels on a readable subset */
     var LABELED = { 500: "500", 5000: "5k", 10000: "10k", 20000: "20k", 30000: "30k" };
     CHECKPOINTS.forEach(function (it, i) {
       var t = document.createElement("span");
       t.className = "pe-tick" + (LABELED[it] ? " labeled" : "");
-      /* 9px ~ half the range thumb, so ticks line up with thumb stops */
       t.style.left = "calc(9px + " + core.tickFraction(i, CHECKPOINTS.length) + " * (100% - 18px))";
       if (LABELED[it]) t.setAttribute("data-label", LABELED[it]);
       ticksEl.appendChild(t);
     });
 
-    function seekAll() {
-      var t = checkpointTime(k);
-      [vSad, vGs].forEach(function (v) {
-        if (v.readyState >= 1) {
-          try { v.currentTime = t; } catch (e) { /* metadata not ready */ }
-        }
+    function paintPanes() {
+      if (reel.readyState < 2) return;
+      var hw = reel.videoWidth / 2, hh = reel.videoHeight;
+      [[cSad, 0], [cGs, hw]].forEach(function (pane) {
+        var c = pane[0];
+        if (c.width !== hw || c.height !== hh) { c.width = hw; c.height = hh; }
+        c.getContext("2d").drawImage(reel, pane[1], 0, hw, hh, 0, 0, hw, hh);
       });
+    }
+    function paintSoon() { paintPanes(); setTimeout(paintPanes, 80); }
+    reel.addEventListener("seeked", paintSoon);
+
+    function seekAll() {
+      ensureSeek(reel, checkpointTime(k));
       label.textContent = core.formatIteration(CHECKPOINTS[k]);
       slider.value = k;
       slider.setAttribute("aria-valuetext",
         core.formatIteration(CHECKPOINTS[k]) + " of 30,000");
+    }
+
+    /* every (re)attach: prime the decoder (Safari yields no frames from a
+       never-played element), land on the current checkpoint, unveil */
+    reel.addEventListener("loadeddata", function () {
+      var settle = function () {
+        seekAll();
+        /* deterministic veil ownership: loadReel raises it, arrival lowers
+           it (readyState polling re-raised it during the very seek that
+           proved the data had arrived) */
+        root.classList.remove("pe-loading");
+        paintSoon();
+      };
+      var pr = reel.play();
+      if (pr && pr.then) {
+        pr.then(function () { reel.pause(); settle(); })
+          .catch(settle);
+      } else {
+        reel.pause();
+        settle();
+      }
+    });
+    reel._recovered = 0;
+    reel.addEventListener("error", function () {
+      if (reel._recovered >= 2) return; /* veil stays: data truly absent */
+      reel._recovered += 1;
+      var path = core.progGridPath(scene);
+      revokeAV1(path);
+      delete blobs[path];
+      loadReel(path);
+    });
+
+    var pendingLoad = null;
+    function loadReel(path) {
+      if (pendingLoad) pendingLoad.cancel();
+      var my = { canceled: false };
+      my.onLoaded = function () {
+        reel.removeEventListener("loadeddata", my.onLoaded);
+        if (my.canceled) return;
+        my.canceled = true;
+        pendingLoad = null;
+        demandDown();
+      };
+      my.cancel = function () {
+        if (my.canceled) return;
+        my.canceled = true;
+        reel.removeEventListener("loadeddata", my.onLoaded);
+        demandDown();
+      };
+      pendingLoad = my;
+      root.classList.add("pe-loading");
+      demandUp();
+      if (promoteBg) promoteBg([path]);
+      fetchToBlob(path).then(function (url) {
+        if (my.canceled) return;
+        reel.addEventListener("loadeddata", my.onLoaded);
+        attachSrc(reel, url);
+      }).catch(function () {
+        if (my.canceled) return;
+        my.cancel(); /* veil stays on: the reel really has no data */
+      });
     }
 
     function loadScene(s) {
@@ -1359,30 +1479,7 @@
       root.querySelectorAll(".pe-frame").forEach(function (f) {
         f.style.aspectRatio = PROGRESS_SCENES[s].ar;
       });
-      /* the background chain should deliver these two next, not last */
-      if (promoteBg) promoteBg([PROGRESS_SCENES[s].sad, PROGRESS_SCENES[s].gs]);
-      [[vSad, PROGRESS_SCENES[s].sad], [vGs, PROGRESS_SCENES[s].gs]].forEach(function (p) {
-        var v = p[0];
-        v.pause();
-        demandUp(); /* the switch owns the network until the frame shows */
-        var settled = false;
-        function settle() {
-          if (!settled) { settled = true; demandDown(); }
-          updateSpin();
-        }
-        v.addEventListener("loadeddata", function once() {
-          v.removeEventListener("loadeddata", once);
-          seekAll();
-          paintPausedFrame(v, checkpointTime(k));
-          settle();
-        });
-        v.addEventListener("error", function onceE() {
-          v.removeEventListener("error", onceE);
-          settle();
-        });
-        attachSrc(v, src(p[1]));
-      });
-      updateSpin();
+      loadReel(core.progGridPath(s));
     }
 
     function stop() {
@@ -1394,7 +1491,6 @@
     function step() {
       k = (k + 1) % CHECKPOINTS.length;
       seekAll();
-      /* hold the converged model longer, like the source videos do */
       timer = setTimeout(step, k === CHECKPOINTS.length - 1 ? 2100 : 700);
     }
     playBtn.addEventListener("click", function () {
@@ -1417,21 +1513,8 @@
       });
     });
 
+    root.classList.add("pe-loading");
     document.addEventListener("critical-assets", function () { loadScene(scene); }, { once: true });
-
-    /* progressive src -> blob upgrade once the background fetch lands:
-       keeps the shown frame, makes scrubbing instant */
-    document.addEventListener("blob-ready", function (ev) {
-      [[vSad, PROGRESS_SCENES[scene].sad], [vGs, PROGRESS_SCENES[scene].gs]].forEach(function (pair) {
-        var v = pair[0];
-        if (ev.detail !== pair[1] || v.src.indexOf("blob:") === 0) return;
-        /* keep the shown frame; if the progressive load never produced one
-           (aborted on a slow link), land on the current checkpoint */
-        var t = v.readyState >= 2 ? v.currentTime : checkpointTime(k);
-        attachSrc(v, src(pair[1]));
-        paintPausedFrame(v, t);
-      });
-    });
   }
 
   /* ---------- boot ---------- */

@@ -11,18 +11,17 @@ async function setSlider(page, value) {
   }, value);
 }
 
-function times(page) {
+/* one reel drives both panes; its clock is the only clock */
+function reelTime(page) {
   return page.evaluate(() =>
-    [...document.querySelectorAll("#progress-explorer video")].map(v => v.currentTime));
+    document.querySelector("#progress-explorer .pe-reel").currentTime);
 }
 
 test.beforeEach(async ({ page }) => {
   await pageReady(page);
   await page.locator(EXPLORER).scrollIntoViewIfNeeded();
-  // both progress videos decoded and seekable
-  await expect.poll(() => page.evaluate(() =>
-    [...document.querySelectorAll("#progress-explorer video")]
-      .every(v => v.readyState >= 2)), { timeout: 30000 }).toBe(true);
+  // the pair reel decoded and unveiled
+  await expect(page.locator(EXPLORER)).not.toHaveClass(/pe-loading/, { timeout: 30000 });
 });
 
 test("renders one tick per checkpoint and starts at iteration 500", async ({ page }) => {
@@ -33,10 +32,8 @@ test("renders one tick per checkpoint and starts at iteration 500", async ({ pag
 test("scrubbing the timeline seeks both methods to the same checkpoint", async ({ page }) => {
   await setSlider(page, 6);
   await expect(page.locator(`${EXPLORER} .pe-iter`)).toHaveText("iteration 10,000");
-  await expect.poll(async () => {
-    const [a, b] = await times(page);
-    return Math.abs(a - 4.55) < 0.1 && Math.abs(b - 4.55) < 0.1;
-  }, { timeout: 10000 }).toBe(true);
+  await expect.poll(async () => Math.abs(await reelTime(page) - 4.55) < 0.1,
+    { timeout: 10000 }).toBe(true);
 });
 
 test("switching scene keeps the selected checkpoint", async ({ page }) => {
@@ -47,10 +44,9 @@ test("switching scene keeps the selected checkpoint", async ({ page }) => {
   await expect(page.locator(`${EXPLORER} .pe-tab[data-scene="bicycle"]`)).toHaveClass(/active/);
   await expect(page.locator(`${EXPLORER} .pe-iter`)).toHaveText("iteration 20,000");
 
-  await expect.poll(async () => {
-    const ts = await times(page);
-    return ts.every(t => Math.abs(t - (8 * 21 + 10.5) / 30) < 0.1);
-  }, { timeout: 15000 }).toBe(true);
+  await expect.poll(async () =>
+    Math.abs(await reelTime(page) - (8 * 21 + 10.5) / 30) < 0.1,
+    { timeout: 15000 }).toBe(true);
 });
 
 test("play steps through checkpoints, pause halts it", async ({ page }) => {
@@ -81,10 +77,8 @@ test("scene switch on a slow connection shows spinners, then lands on the checkp
   let release;
   const held = new Promise(res => { release = res; });
   const handler = async route => { await held; await route.continue().catch(() => {}); };
-  for (const f of ["progress_sad_truck.mp4", "progress_3dgs_truck.mp4"]) {
-    await page.route(`**/videos/${f}`, handler);
-    await page.route(`**/videos/av1/${f}`, handler);
-  }
+  await page.route("**/grid/proggrid_truck.mp4", handler);
+  await page.route("**/av1/grid/proggrid_truck.mp4", handler);
   await pageReady(page);
 
   await page.locator(`${EXPLORER} [data-scene="truck"]`).click();
@@ -94,9 +88,7 @@ test("scene switch on a slow connection shows spinners, then lands on the checkp
 
   release();
   await expect(page.locator(EXPLORER)).not.toHaveClass(/pe-loading/, { timeout: 30000 });
-  // both videos sit on the first checkpoint frame (k=0 -> 10.5/30 s)
-  await expect.poll(async () => {
-    const t = await times(page);
-    return t.length === 2 && t.every(x => Math.abs(x - 0.35) < 0.1);
-  }, { timeout: 10000 }).toBe(true);
+  // the reel sits on the first checkpoint frame (k=0 -> 10.5/30 s)
+  await expect.poll(async () => Math.abs(await reelTime(page) - 0.35) < 0.1,
+    { timeout: 10000 }).toBe(true);
 });
