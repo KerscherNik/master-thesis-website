@@ -1,2 +1,4 @@
+# Allow crawling so robots can see the page's noindex meta and honor it.
+# (Disallow: / would hide the noindex and let the bare URL appear in results.)
 User-agent: *
-Disallow: /
+Disallow:

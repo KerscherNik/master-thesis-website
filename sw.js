@@ -30,8 +30,10 @@ self.addEventListener("fetch", function (e) {
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
+        if (res.ok) { /* never persist an error page as the offline fallback */
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
+        }
         return res;
       }).catch(function () { return caches.match(req); })
     );
