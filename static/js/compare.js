@@ -56,6 +56,7 @@
     return true;
   }
   var openLightbox, closeLightbox;
+  var criticalPhaseDone = false; /* bench fetches wait for the hero pair */
   function src(path) { return blobs[path] || netPath(path); }
 
   /* Seek that survives Safari: an early currentTime write on a just-loaded
@@ -105,22 +106,32 @@
     if (!ev.persisted) return;
     if ("AbortController" in window) bgAborter = new AbortController();
     bgResumers.splice(0).forEach(function (resume) { resume(); });
+    /* the browser paused all media on entering the bfcache; the ring's
+       watchdog self-heals, bench and slots need the nudge */
+    document.querySelectorAll(".fa-bench, .video-slot").forEach(function (el) {
+      if (el._userPaused || el._visible === false) return;
+      el.querySelectorAll("video").forEach(function (v) {
+        if (v.readyState >= 2) v.play().catch(function () {});
+      });
+    });
   });
   function isAbort(err) { return !!(err && err.name === "AbortError"); }
 
   function fetchToBlob(path, onBytes, onTotal, bg) {
     if (blobs[path]) return Promise.resolve(blobs[path]);
     if (inflight[path]) return inflight[path];
+    var codec = netPath(path) === path ? "h264" : "av1";
     var p = doFetchToBlob(netPath(path), onBytes, onTotal, bg)
       .catch(function (err) {
         if (isAbort(err)) throw err; /* page is leaving; not a media failure */
         /* AV1 twin missing or failed: retry the H.264 original */
         if (netPath(path) === path) throw err;
+        codec = "h264";
         return doFetchToBlob(path, onBytes, onTotal, bg);
       })
       .then(function (url) {
         blobs[path] = url;
-        blobCodec[path] = AV1 ? "av1" : "h264";
+        blobCodec[path] = codec;
         delete inflight[path];
         return url;
       }, function (err) {
@@ -144,10 +155,17 @@
       if (!res.body || !res.body.getReader) return res.blob();
       var reader = res.body.getReader();
       var chunks = [];
+      var received = 0;
       function pump() {
         return reader.read().then(function (r) {
-          if (r.done) return new Blob(chunks, { type: "video/mp4" });
+          if (r.done) {
+            if (len && received !== len) {
+              throw new Error("truncated: " + received + "/" + len + " bytes for " + path);
+            }
+            return new Blob(chunks, { type: "video/mp4" });
+          }
           chunks.push(r.value);
+          received += r.value.length;
           if (onBytes) onBytes(r.value.length);
           return pump();
         });
@@ -196,6 +214,7 @@
       }
     }
     function criticalReady() {
+      criticalPhaseDone = true;
       document.dispatchEvent(new Event("critical-assets"));
     }
 
@@ -298,19 +317,40 @@
     /* explicit pause wins over all auto-play; under prefers-reduced-motion
        nothing starts until the user presses play */
     var userPaused = reducedMotion();
+    /* held while a side is reloading: stale content must not play, and the
+       user's play/pause intent is applied once the new media has arrived */
+    var held = false;
+    var baseRate = rate || 1;
     function tick() {
-      if (active && !b.paused && a.readyState >= 2 &&
-          Math.abs(a.currentTime - b.currentTime) > 0.08) {
-        a.currentTime = b.currentTime;
+      if (active && !userPaused && !held && !b.paused &&
+          a.readyState >= 2 && !a.seeking) {
+        var d = a.currentTime - b.currentTime;
+        if (Math.abs(d) > 0.75) {
+          /* loop wrap or a fresh attach: pause the partner for one exact
+             seek (otherwise it moves on during the seek and leaves a
+             residual), then canplay -> start() resumes both aligned */
+          a.playbackRate = baseRate;
+          b.pause();
+          a.currentTime = b.currentTime;
+        } else if (Math.abs(d) > 0.04) {
+          /* converge by nudging a's clock up to 12%: no seeks, no stalls,
+             and no seek-chase (a seek lands behind a still-playing b) */
+          var adj = Math.max(-0.12, Math.min(0.12, d * 0.5));
+          a.playbackRate = baseRate * (1 - adj);
+        } else if (a.playbackRate !== baseRate) {
+          a.playbackRate = baseRate;
+        }
       }
       requestAnimationFrame(tick);
     }
     function start() {
-      if (!active || userPaused || a.readyState < 2 || b.readyState < 2) return;
-      /* only seek on real drift: an unconditional seek fires "waiting",
-         which pauses the partner, whose "canplay" would re-enter start()
-         and seek again — an infinite loop that freezes the pair */
-      if (Math.abs(a.currentTime - b.currentTime) > 0.08) {
+      if (!active || userPaused || held || a.readyState < 2 || b.readyState < 2) return;
+      /* hard-align only when playback is being (re)started or the gap is
+         wrap-scale. While playing, small drift is converged by the tick's
+         playbackRate nudge - a seek here would land behind the still-playing
+         partner, whose "canplay" re-enters start(): an endless seek chase. */
+      var d = Math.abs(a.currentTime - b.currentTime);
+      if ((b.paused || d > 0.75) && d > 0.08 && !a.seeking) {
         try { a.currentTime = b.currentTime; } catch (e) { /* not seekable yet */ }
       }
       a.play().catch(function () {});
@@ -322,6 +362,9 @@
       /* if one side ever rebuffers (non-blob fallback), halt the other and
          re-enter in sync instead of letting them drift apart */
       v.addEventListener("waiting", function () {
+        /* a seek fires "waiting" too; pausing the partner for those caused a
+           visible stall at every loop boundary */
+        if (v.seeking) return;
         (v === a ? b : a).pause();
       });
       v.addEventListener("canplay", function () { if (active) start(); });
@@ -330,7 +373,7 @@
        paused while both are decodable (missed event, rejected play(),
        hot-reload races), re-enter start() — it re-syncs and resumes. */
     setInterval(function () {
-      if (active && !userPaused && a.readyState >= 2 && b.readyState >= 2 &&
+      if (active && !userPaused && !held && a.readyState >= 2 && b.readyState >= 2 &&
           (a.paused || b.paused)) {
         start();
       }
@@ -345,7 +388,17 @@
         return !userPaused;
       },
       play: function () { userPaused = false; start(); },
-      isUserPaused: function () { return userPaused; }
+      isUserPaused: function () { return userPaused; },
+      setUserPaused: function (v) {
+        userPaused = !!v;
+        if (userPaused) { a.pause(); b.pause(); } else { start(); }
+      },
+      /* freeze stale content while media reloads; releasing applies intent */
+      hold: function (v) {
+        held = !!v;
+        if (held) { a.pause(); b.pause(); } else { start(); }
+      },
+      isHeld: function () { return held; }
     };
   }
 
@@ -489,7 +542,7 @@
         ev.stopPropagation();
         var playing = root._pair.toggle();
         pp.innerHTML = playing ? PAUSE : PLAY;
-        pp.setAttribute("aria-label", playing ? "Pause the fly-through" : "Resume the fly-through");
+        pp.setAttribute("aria-label", playing ? "Pause the fly-through" : "Play the fly-through");
       });
       root.appendChild(pp);
       root._ppBtn = pp;
@@ -525,6 +578,7 @@
     var cap = lb.querySelector(".lb-caption");
     var closeBtn = lb.querySelector(".lb-close");
     var pausedPairs = [];
+    var heldPairs = [];
     var opener = null;
 
     openLightbox = function (build, captionText) {
@@ -537,10 +591,18 @@
       lb.classList.add("open");
       document.body.classList.add("no-scroll");
       closeBtn.focus();
-      /* silence page videos behind the overlay */
+      /* silence page videos behind the overlay; hold pairs so the
+         watchdog cannot resume them under the modal */
       pausedPairs = [];
       document.querySelectorAll("video").forEach(function (v) {
         if (!lb.contains(v) && !v.paused) { pausedPairs.push(v); v.pause(); }
+      });
+      heldPairs = [];
+      document.querySelectorAll(".ba-compare").forEach(function (el) {
+        if (!lb.contains(el) && el._pair && !el._pair.isHeld()) {
+          el._pair.hold(true);
+          heldPairs.push(el._pair);
+        }
       });
     };
     closeLightbox = function () {
@@ -556,6 +618,8 @@
         v.load();
       });
       stage.innerHTML = "";
+      heldPairs.forEach(function (p) { p.hold(false); });
+      heldPairs = [];
       pausedPairs.forEach(function (v) { v.play().catch(function () {}); });
       pausedPairs = [];
     };
@@ -605,7 +669,8 @@
     }, caption);
   }
 
-  function openVideoLightbox(path, caption, rate) {
+  function openVideoLightbox(path, caption, rate, opts) {
+    opts = opts || {};
     openLightbox(function (stage) {
       var v = document.createElement("video");
       v.preload = "auto";
@@ -616,7 +681,14 @@
       v.controls = true;
       if (rate) { v.defaultPlaybackRate = rate; v.playbackRate = rate; }
       stage.appendChild(v);
-      if (!reducedMotion()) { v.autoplay = true; v.play().catch(function () {}); }
+      if (opts.paused || reducedMotion()) {
+        /* a paused source stays paused at the same moment; the native
+           controls let the viewer play */
+        if (opts.time) ensureSeek(v, opts.time);
+      } else {
+        v.autoplay = true;
+        v.play().catch(function () {});
+      }
     }, caption);
   }
 
@@ -646,6 +718,16 @@
       });
       stage.appendChild(el);
       initCompare(el, { noExpand: true, autoplay: true });
+      /* inherit the source pair's pause state and frozen frame */
+      if (info.isVideo && origRoot._pair && origRoot._pair.isUserPaused() && el._pair) {
+        el._pair.setUserPaused(true);
+        var t = origRoot.querySelector("video").currentTime;
+        el.querySelectorAll("video").forEach(function (v) { ensureSeek(v, t); });
+        if (el._ppBtn) {
+          el._ppBtn.innerHTML = PLAY;
+          el._ppBtn.setAttribute("aria-label", "Play the fly-through");
+        }
+      }
     });
   }
 
@@ -763,28 +845,51 @@
     }
 
     function attachSide(v, path) {
+      /* a newer attach supersedes a pending one on the same element */
+      v._gen = (v._gen || 0) + 1;
+      var gen = v._gen;
+      if (v._sideDone) { /* the superseded attach will never complete */
+        v.removeEventListener("loadeddata", v._sideDone);
+        v._sideDone = null;
+        pendingSides = Math.max(0, pendingSides - 1);
+      }
       pendingSides += 1;
       cmp.classList.add("fa-loading");
+      if (cmp._pair) cmp._pair.hold(true); /* stale frames freeze, intent is remembered */
       v.style.opacity = "0.25";
-      v.addEventListener("loadeddata", function done() {
+      var done = function () {
         v.removeEventListener("loadeddata", done);
+        if (v._sideDone === done) v._sideDone = null;
         v.style.opacity = "";
         pendingSides = Math.max(0, pendingSides - 1);
-        if (!pendingSides) cmp.classList.remove("fa-loading");
         if (isPaused() && pausedAlignT != null) ensureSeek(v, pausedAlignT);
-      });
+        if (!pendingSides) {
+          cmp.classList.remove("fa-loading");
+          if (cmp._pair) cmp._pair.hold(false); /* applies the recorded intent */
+        }
+      };
+      v._sideDone = done;
+      v.addEventListener("loadeddata", done);
       fetchToBlob(path).then(function (url) {
+        if (v._gen !== gen) return; /* superseded by a newer swap/scene */
         attachSrc(v, url);
       }).catch(function () {
+        if (v._gen !== gen) return;
         /* transient (SW killed, network blip): one retry, then give up
            quietly - the previous frame stays, nothing is destroyed */
         setTimeout(function () {
+          if (v._gen !== gen) return;
           fetchToBlob(path).then(function (url) {
+            if (v._gen !== gen) return;
             attachSrc(v, url);
           }).catch(function () {
+            if (v._gen !== gen) return;
             v.style.opacity = "";
             pendingSides = Math.max(0, pendingSides - 1);
-            if (!pendingSides) cmp.classList.remove("fa-loading");
+            if (!pendingSides) {
+              cmp.classList.remove("fa-loading");
+              if (cmp._pair) cmp._pair.hold(false);
+            }
           });
         }, 1200);
       });
@@ -806,10 +911,34 @@
         "</div></div>";
       tile.querySelector(".fa-tile-name").textContent = label(m);
 
+      function whenRevealed(fn) {
+        if (criticalPhaseDone) fn();
+        else document.addEventListener("critical-assets", fn, { once: true });
+      }
       var tv = tile.querySelector("video");
+      tv._recovered = 0;
+      tv.addEventListener("error", function () {
+        var path = core.flyPath(scene, m);
+        if (tv._recovered < 1) {
+          tv._recovered += 1;
+          revokeAV1(path);
+          delete blobs[path];
+          fetchToBlob(path).then(function (url) { attachSrc(tv, url); })
+            .catch(function () { markTileUnavailable(); });
+        } else {
+          markTileUnavailable();
+        }
+      });
+      function markTileUnavailable() {
+        tile.classList.remove("loaded");
+        tile.classList.add("fa-unavailable");
+        tile.setAttribute("draggable", "false");
+        tile.querySelectorAll(".fa-swap").forEach(function (b) { b.disabled = true; });
+        tile.querySelector(".fa-tile-name").textContent = label(m) + " — not available";
+      }
       tv.setAttribute("aria-label", label(m) + " fly-through preview, " + scene + " scene");
       if (RATE) { tv.defaultPlaybackRate = RATE; tv.playbackRate = RATE; }
-      fetchToBlob(core.flyPath(scene, m)).then(function (url) {
+      whenRevealed(function () { fetchToBlob(core.flyPath(scene, m)).then(function (url) {
         tv.addEventListener("loadeddata", function done() {
           tv.removeEventListener("loadeddata", done);
           tile.classList.add("loaded");
@@ -823,8 +952,9 @@
       }).catch(function () {
         tile.classList.add("fa-unavailable");
         tile.setAttribute("draggable", "false");
+        tile.querySelectorAll(".fa-swap").forEach(function (b) { b.disabled = true; });
         tile.querySelector(".fa-tile-name").textContent = label(m) + " — not available";
-      });
+      }); });
 
       tile.addEventListener("dragstart", function (ev) {
         if (tile.classList.contains("fa-unavailable")) { ev.preventDefault(); return; }
@@ -844,7 +974,8 @@
       });
       tile.querySelector(".fa-tile-media").addEventListener("click", function () {
         if (tile.classList.contains("fa-unavailable")) return;
-        openVideoLightbox(core.flyPath(scene, m), label(m) + " — " + scene, RATE);
+        openVideoLightbox(core.flyPath(scene, m), label(m) + " — " + scene, RATE,
+          { paused: isPaused(), time: ringTime() });
       });
       return tile;
     }
@@ -931,23 +1062,21 @@
 
     /* the two ring videos arrive via the loader (data-critical); the bench
        and the other scenes are fetched in the background afterwards */
+    buildBench(); /* tiles with spinners from the first paint */
     document.addEventListener("critical-assets", function () {
       syncTexts();
-      buildBench();
       /* background prefetch, ring videos of every scene before bench videos:
          a scene tab click most likely needs the current left/right methods */
       var rest = [];
+      function push(p) { if (!blobs[p] && rest.indexOf(p) < 0) rest.push(p); }
+      /* the bench tiles of the CURRENT scene are on screen right now;
+         everything else comes after */
+      core.benchedMethods(left, right).forEach(function (m) { push(core.flyPath(scene, m)); });
       core.FLY_SCENES.forEach(function (s) {
-        [left, right].forEach(function (m) {
-          var p = core.flyPath(s, m);
-          if (!blobs[p]) rest.push(p);
-        });
+        [left, right].forEach(function (m) { push(core.flyPath(s, m)); });
       });
       core.FLY_SCENES.forEach(function (s) {
-        Object.keys(core.FLY_METHODS).forEach(function (m) {
-          var p = core.flyPath(s, m);
-          if (!blobs[p] && rest.indexOf(p) < 0) rest.push(p);
-        });
+        Object.keys(core.FLY_METHODS).forEach(function (m) { push(core.flyPath(s, m)); });
       });
       /* two parallel streams, but yield entirely while the user waits on an
          on-demand load (scene switch / swap) so it gets the bandwidth */

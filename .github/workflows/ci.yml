@@ -5,19 +5,42 @@
 
 name: CI
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   push:
     branches: [main]
+    # docs-only pushes skip the whole run; nothing below is deployed anyway.
+    # Caveat: if a status check is ever marked required in branch protection,
+    # move this filtering into a gate job instead (skipped workflows never
+    # report their checks).
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+  workflow_dispatch:
+
+# supersede PR runs on new pushes; main pushes get unique groups (run_id)
+# so a deploy is never cancelled mid-flight
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -39,9 +62,14 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Chromium (Chrome for Testing, ships H.264)
-        run: npx playwright install --with-deps chromium
+        # --with-deps dropped: ubuntu-latest images carry Chromium's system
+        # deps, and apt ran on every cache hit. If a future image breaks,
+        # add a separate `npx playwright install-deps chromium` step back.
+        run: npx playwright install chromium
 
       - name: End-to-end tests (Playwright)
         run: npm run test:e2e
@@ -53,12 +81,15 @@ jobs:
           name: playwright-results
           path: test-results/
           retention-days: 7
+          if-no-files-found: ignore
 
   deploy:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
@@ -66,6 +97,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Assemble site (page + assets only, no dev tooling)
         run: |

@@ -5,7 +5,10 @@ module.exports = defineConfig({
   timeout: 90000,
   expect: { timeout: 15000 },
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 4,
+  /* public-repo ubuntu-latest runners are 4-core; retries absorb infra
+     flakes in CI only (retried passes are labeled "flaky" in the report) */
+  workers: process.env.CI ? 3 : 4,
+  retries: process.env.CI ? 2 : 0,
   reporter: [["list"]],
   use: {
     baseURL: "http://127.0.0.1:4173",
