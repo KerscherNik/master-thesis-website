@@ -73,7 +73,9 @@ describe("security & privacy contract", () => {
 
   it("workflow actions are SHA-pinned with least-privilege permissions", () => {
     const ci = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
-    expect(ci).toMatch(/^permissions:\n  contents: read/m);
+    expect(ci).toMatch(/^permissions: \{\}/m);          // deny-all at workflow level
+    expect(ci).toMatch(/^      contents: read/m);        // per-job grants exist
+    expect(ci).toMatch(/persist-credentials: false/);
     const uses = [...ci.matchAll(/uses: ([^\s]+)/g)].map(m => m[1]);
     for (const u of uses) expect(u).toMatch(/@[0-9a-f]{40}$/);
   });

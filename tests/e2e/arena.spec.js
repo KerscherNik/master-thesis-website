@@ -38,7 +38,11 @@ test("starts with SAD vs 3DGS in the ring and the other methods on the bench", a
 test("fly-through playback is slowed to the configured rate", async ({ page }) => {
   const rates = await page.evaluate(() =>
     [...document.querySelectorAll(".fa-compare video")].map(v => v.playbackRate));
-  expect(rates).toEqual([0.6, 0.6]);
+  // the sync engine nudges the follower's rate up to +-12% around the base
+  // while converging drift; the master stays exactly at the configured rate
+  expect(rates[1]).toBe(0.6);
+  expect(rates[0]).toBeGreaterThanOrEqual(0.6 * 0.88 - 1e-9);
+  expect(rates[0]).toBeLessThanOrEqual(0.6 * 1.12 + 1e-9);
 });
 
 test("tile swap button puts that method in the ring and benches the replaced one", async ({ page }) => {
