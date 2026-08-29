@@ -25,12 +25,16 @@ SAD = {
     "bicycle": OUT / "newproj-sad_v1.7-bicycle-s0-FINAL-a1-ff0-pa32-p128-NOLPIPS-NOaxial",
     "garden": OUT / "newproj-sad_v1.7-garden-s0-FINAL-a1-ff0-pa32-p128-NOLPIPS-NOaxial",
     "stump": OUT / "newproj-sad_v1.7-stump-s0-FINAL-a1-ff0-pa32-p128-NOLPIPS-NOaxial",
+    "truck": OUT / "sad_v1.7-truck-s0-FINAL-a1-ff0-pa32-p128-NOLPIPS-NOaxial",
+    "drjohnson": OUT / "sad_v1.7-drjohnson-s0-FINAL-a1-ff0-pa32-p128-NOLPIPS-NOaxial",
 }
 GS = {
     "flowers": OUT / "3dgs-flowers-s0-rerun",
     "bicycle": OUT / "3dgs-bicycle-s0",
     "garden": OUT / "3dgs-garden-s0",
     "stump": OUT / "3dgs-stump-s0",
+    "truck": OUT / "3dgs-truck-s0",
+    "drjohnson": OUT / "3dgs-drjohnson-s0",
 }
 VIEW = {"flowers": "00021", "bicycle": "00012", "garden": "00003", "stump": "00015"}
 
@@ -66,6 +70,9 @@ CROP_BOX: dict[str, tuple[int, int, int, int] | None] = {
     "bicycle": (633, 471, 440, 350),
     "garden": (160, 120, 440, 350),  # view 00010: bark, scuttle, foliage, wood grain
     "stump": None,
+    "flowers": None,
+    "truck": None,      # view auto-picked by best_view (thesis criterion)
+    "drjohnson": None,  # view auto-picked by best_view
 }
 # crop view can differ from the poster/full view above
 CROP_VIEW = {"garden": "00010"}
@@ -75,6 +82,23 @@ CROP_ZOOM = 2  # upscale factor for crisp full-width rendering
 def luma(path: Path) -> "np.ndarray":
     import numpy as np
     return np.asarray(Image.open(path).convert("L"), dtype=np.float32)
+
+
+def best_view(scene: str) -> str:
+    """Pick the held-out view where the baseline's full-image error most
+    exceeds SAD's (same criterion as best_box, but across views)."""
+    import numpy as np
+    views = sorted(p.stem for p in (SAD[scene] / "test/ours_30000/renders").glob("*.png"))
+    best, best_v = -1e9, views[0]
+    for v in views:
+        gt = luma(SAD[scene] / f"test/ours_30000/gt/{v}.png")
+        sad = luma(SAD[scene] / f"test/ours_30000/renders/{v}.png")
+        gs = luma(GS[scene] / f"test/ours_30000/renders/{v}.png")
+        s = float((np.abs(gs - gt) - np.abs(sad - gt)).mean())
+        if s > best:
+            best, best_v = s, v
+    print(f"  {scene}: view {best_v} (baseline error exceeds SAD's by {best:.3f} grey levels)")
+    return best_v
 
 
 def best_box(scene: str, w: int = 440, h: int = 350, stride: int = 40) -> tuple[int, int, int, int]:
@@ -118,7 +142,10 @@ def main() -> None:
         jpg(GS[scene] / f"test/ours_30000/renders/{v}.png", WEB / "teaser" / f"{scene}_3dgs.jpg")
 
     # Result sliders: 2x-upscaled detail crops where the methods differ.
-    for scene in ("bicycle", "garden", "stump"):
+    for scene in ("truck", "drjohnson"):
+        if scene not in VIEW:
+            VIEW[scene] = best_view(scene)
+    for scene in ("flowers", "bicycle", "garden", "stump", "truck", "drjohnson"):
         crop_pair(scene)
 
     # Method strip: the SAD hero panels (400 DPI handoff exports, flowers scene).
@@ -138,7 +165,7 @@ def main() -> None:
     png(FIG / "generated" / "fig_exp_density_map.png", WEB / "results" / "density_map.png")
 
     # Posters for pending video slots (plain renders; the page badges them).
-    for scene in ("flowers", "bicycle", "garden"):
+    for scene in ("flowers", "bicycle", "garden", "stump", "truck", "drjohnson"):
         jpg(SAD[scene] / f"test/ours_30000/renders/{VIEW[scene]}.png",
             WEB / "posters" / f"{scene}.jpg", quality=85)
 

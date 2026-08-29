@@ -763,18 +763,31 @@
     document.addEventListener("critical-assets", function () {
       syncTexts();
       buildBench();
+      /* background prefetch, ring videos of every scene before bench videos:
+         a scene tab click most likely needs the current left/right methods */
       var rest = [];
       core.FLY_SCENES.forEach(function (s) {
-        Object.keys(core.FLY_METHODS).forEach(function (m) {
+        [left, right].forEach(function (m) {
           var p = core.flyPath(s, m);
           if (!blobs[p]) rest.push(p);
         });
       });
-      (function next() {
+      core.FLY_SCENES.forEach(function (s) {
+        Object.keys(core.FLY_METHODS).forEach(function (m) {
+          var p = core.flyPath(s, m);
+          if (!blobs[p] && rest.indexOf(p) < 0) rest.push(p);
+        });
+      });
+      /* two parallel streams, but yield entirely while the user waits on an
+         on-demand load (scene switch / swap) so it gets the bandwidth */
+      function next() {
+        if (!rest.length) return;
+        if (pendingSides > 0) { setTimeout(next, 400); return; }
         var p = rest.shift();
-        if (!p) return;
         fetchToBlob(p).catch(function () {}).then(next);
-      })();
+      }
+      next();
+      next();
     }, { once: true });
 
     syncTexts();

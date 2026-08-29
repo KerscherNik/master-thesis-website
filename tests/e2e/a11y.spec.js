@@ -27,7 +27,7 @@ test("scene tabs follow the ARIA tablist keyboard pattern", async ({ page }) => 
   await expect(page.locator('#flythrough-arena [data-fly-scene="bicycle"]')).toBeFocused();
   await expect(page.locator('#flythrough-arena [data-fly-scene="bicycle"]')).toHaveClass(/active/);
   await page.keyboard.press("End");
-  await expect(page.locator('#flythrough-arena [data-fly-scene="stump"]')).toBeFocused();
+  await expect(page.locator('#flythrough-arena [data-fly-scene="drjohnson"]')).toBeFocused();
   await page.keyboard.press("Home");
   await expect(page.locator('#flythrough-arena [data-fly-scene="flowers"]')).toBeFocused();
   await expect(page.locator('#flythrough-arena [data-fly-scene="flowers"]')).toHaveClass(/active/);

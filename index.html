@@ -215,31 +215,57 @@
      transfers to Tanks&nbsp;&amp;&nbsp;Temples and Deep Blending; the perceptual metrics there do not.</p>
 
   <h3>Same view, same training data &mdash; drag to compare</h3>
-  <p class="caption left">Detail crops of held-out test views, chosen where the baseline's error most exceeds SAD's
-     (the thesis' criterion); the per-scene numbers below are full-image averages.</p>
-  <div class="compare-stack">
+  <p class="caption left">Detail crops of held-out test views across all three benchmarks (Mip-NeRF&nbsp;360,
+     Tanks&nbsp;&amp;&nbsp;Temples, Deep Blending), chosen where the baseline's error most exceeds SAD's
+     (the thesis' criterion); PSNR numbers are full-image averages.</p>
+  <div class="compare-stack grid">
     <figure>
-      <div class="ba-compare" data-label-a="<strong>SAD</strong> (ours) &middot; 2.95M Gaussians" data-label-b="3DGS &middot; 4.63M Gaussians">
+      <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
+        <img src="static/images/comparisons/flowers_sad.jpg" alt="SAD render, flowers test view, petal and grass crop" width="880" height="700" loading="lazy" decoding="async">
+        <img src="static/images/comparisons/flowers_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+      </div>
+      <figcaption class="caption"><em>flowers</em> (360), petals and grass &mdash; SAD 3.40M vs 3DGS 2.75M
+        Gaussians, +0.29&nbsp;dB PSNR.</figcaption>
+    </figure>
+    <figure>
+      <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <img src="static/images/comparisons/bicycle_sad.jpg" alt="SAD render, bicycle test view, front wheel and grass crop" width="880" height="700" loading="lazy" decoding="async">
         <img src="static/images/comparisons/bicycle_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
       </div>
-      <figcaption class="caption"><em>bicycle</em>, front wheel and grass &mdash; SAD at 64% of the baseline's count,
+      <figcaption class="caption"><em>bicycle</em> (360), front wheel and grass &mdash; 64% of the count,
         +0.06&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
-      <div class="ba-compare" data-label-a="<strong>SAD</strong> (ours) &middot; 2.75M Gaussians" data-label-b="3DGS &middot; 3.66M Gaussians">
+      <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <img src="static/images/comparisons/garden_sad.jpg" alt="SAD render, garden test view, bark and foliage crop" width="880" height="700" loading="lazy" decoding="async">
         <img src="static/images/comparisons/garden_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
       </div>
-      <figcaption class="caption"><em>garden</em>, bark, foliage, and wood grain &mdash; 75% of the count,
+      <figcaption class="caption"><em>garden</em> (360), bark and wood grain &mdash; 75% of the count,
         &minus;0.12&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
-      <div class="ba-compare" data-label-a="<strong>SAD</strong> (ours) &middot; 2.88M Gaussians" data-label-b="3DGS &middot; 4.20M Gaussians">
+      <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <img src="static/images/comparisons/stump_sad.jpg" alt="SAD render, stump test view, ivy crop" width="880" height="700" loading="lazy" decoding="async">
         <img src="static/images/comparisons/stump_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
       </div>
-      <figcaption class="caption"><em>stump</em>, ivy and twigs &mdash; 69% of the count, +0.47&nbsp;dB PSNR.</figcaption>
+      <figcaption class="caption"><em>stump</em> (360), ivy and twigs &mdash; 69% of the count,
+        +0.47&nbsp;dB PSNR.</figcaption>
+    </figure>
+    <figure>
+      <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
+        <img src="static/images/comparisons/truck_sad.jpg" alt="SAD render, truck test view crop" width="880" height="700" loading="lazy" decoding="async">
+        <img src="static/images/comparisons/truck_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+      </div>
+      <figcaption class="caption"><em>truck</em> (Tanks&nbsp;&amp;&nbsp;Temples) &mdash; SAD 1.72M vs 3DGS 2.06M
+        Gaussians (83%), same configuration, no retuning.</figcaption>
+    </figure>
+    <figure>
+      <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
+        <img src="static/images/comparisons/drjohnson_sad.jpg" alt="SAD render, Dr Johnson test view crop" width="880" height="700" loading="lazy" decoding="async">
+        <img src="static/images/comparisons/drjohnson_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+      </div>
+      <figcaption class="caption"><em>drjohnson</em> (Deep Blending) &mdash; SAD 1.01M vs 3DGS 3.12M
+        Gaussians (32%), same configuration, no retuning.</figcaption>
     </figure>
   </div>
 
@@ -264,6 +290,8 @@
           <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="bicycle">bicycle</button>
           <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="garden">garden</button>
           <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="stump">stump</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="truck">truck</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-fly-scene="drjohnson">drjohnson</button>
         </div>
       </div>
       <div class="ba-compare fa-compare" data-label-a="SAD (ours)" data-label-b="3DGS" data-rate="0.6"
@@ -283,14 +311,18 @@
   </div>
 
   <h3>Training progress</h3>
-  <p class="caption left">A fixed held-out view rendered at each saved checkpoint between 500 and 30,000 iterations.
-     Pick a scene, then scrub the timeline (or press play) to step SAD and 3DGS through the <em>same</em> training
-     iterations side by side; the overlay in each frame gives the exact iteration and Gaussian count.</p>
+  <p class="caption left">A fixed held-out view rendered at each saved checkpoint between 500 and 30,000 iterations,
+     one scene per benchmark family (Mip-NeRF&nbsp;360: <em>flowers</em>, <em>bicycle</em>; Tanks&nbsp;&amp;&nbsp;Temples:
+     <em>truck</em>; Deep Blending: <em>drjohnson</em>). Pick a scene, then scrub the timeline (or press play) to step
+     SAD and 3DGS through the <em>same</em> training iterations side by side; the overlay in each frame gives the exact
+     iteration and Gaussian count.</p>
   <div class="progress-explorer" id="progress-explorer">
     <div class="pe-head">
       <div class="pe-tabs" role="tablist" aria-label="Scene">
         <button class="pe-tab active" type="button" role="tab" aria-selected="true" data-scene="flowers">flowers</button>
         <button class="pe-tab" type="button" role="tab" aria-selected="false" data-scene="bicycle">bicycle</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-scene="truck">truck</button>
+        <button class="pe-tab" type="button" role="tab" aria-selected="false" data-scene="drjohnson">drjohnson</button>
       </div>
       <span class="pe-iter">iteration 500</span>
     </div>

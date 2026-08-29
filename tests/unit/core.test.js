@@ -93,7 +93,7 @@ describe("fly-through arena data", () => {
     expect(Object.keys(core.FLY_METHODS)).toContain("sad");
     expect(Object.keys(core.FLY_METHODS)).toContain("gs");
     expect(Object.keys(core.FLY_METHODS)).toContain("mcmc");
-    expect(core.FLY_SCENES).toEqual(["flowers", "bicycle", "garden", "stump"]);
+    expect(core.FLY_SCENES).toEqual(["flowers", "bicycle", "garden", "stump", "truck", "drjohnson"]);
   });
 
   it("builds the expected video paths", () => {

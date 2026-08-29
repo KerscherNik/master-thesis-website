@@ -206,6 +206,30 @@ h2 + h3 { margin-top: 2.5rem; }
 .compare-stack { display: grid; gap: 2.75rem; margin-top: 0.75rem; }
 .compare-stack figure { margin: 0; }
 
+/* six-scene grid: three per row, compact labels and captions */
+.compare-stack.grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem 1.25rem;
+}
+.compare-stack.grid .ba-label {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  top: 0.4rem;
+}
+.compare-stack.grid .ba-label.a { left: 0.4rem; }
+.compare-stack.grid .ba-label.b { right: 0.4rem; }
+.compare-stack.grid .ba-handle { width: 30px; height: 30px; }
+.compare-stack.grid .ba-handle svg { width: 16px; height: 16px; }
+.compare-stack.grid .ba-expand { width: 28px; height: 28px; right: 0.4rem; bottom: 0.4rem; }
+.compare-stack.grid .ba-expand svg { width: 15px; height: 15px; }
+.compare-stack.grid .caption { font-size: 0.82rem; margin-top: 0.5rem; }
+@media (max-width: 900px) {
+  .compare-stack.grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .compare-stack.grid { grid-template-columns: 1fr; }
+}
+
 /* ---------- method strip ---------- */
 
 .method-strip {

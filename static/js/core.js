@@ -20,7 +20,11 @@
     flowers: { sad: "static/videos/progress_sad_flowers.mp4",
                gs: "static/videos/progress_3dgs_flowers.mp4", ar: "1256 / 828" },
     bicycle: { sad: "static/videos/progress_sad_bicycle.mp4",
-               gs: "static/videos/progress_3dgs_bicycle.mp4", ar: "1236 / 820" }
+               gs: "static/videos/progress_3dgs_bicycle.mp4", ar: "1236 / 820" },
+    truck: { sad: "static/videos/progress_sad_truck.mp4",
+             gs: "static/videos/progress_3dgs_truck.mp4", ar: "1600 / 892" },
+    drjohnson: { sad: "static/videos/progress_sad_drjohnson.mp4",
+                 gs: "static/videos/progress_3dgs_drjohnson.mp4", ar: "1332 / 876" }
   };
 
   /* fly-through arena: 3 methods x 3 scenes, all pre-rendered */
@@ -30,7 +34,7 @@
     mcmc: { label: "3DGS-MCMC", file: "mcmc" },
     fds:  { label: "FDS-GS", file: "fdsgs" }
   };
-  var FLY_SCENES = ["flowers", "bicycle", "garden", "stump"];
+  var FLY_SCENES = ["flowers", "bicycle", "garden", "stump", "truck", "drjohnson"];
 
   function flyPath(scene, method) {
     return "static/videos/flythrough_" + FLY_METHODS[method].file + "_" + scene + ".mp4";
