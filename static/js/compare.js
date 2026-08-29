@@ -553,13 +553,45 @@
           v._recovered += 1;
           var path = root._compare && root._compare.srcs[v === a ? 0 : 1];
           if (!path) return;
+          /* recover like any other load: veil + held pair + parked
+             background chains. The silent refetch this used to be left one
+             side stuck while the other played. */
+          root._loadHoldUp();
+          demandUp();
+          var released = false;
+          var release = function () {
+            if (released) return;
+            released = true;
+            v.removeEventListener("loadeddata", release);
+            v.removeEventListener("error", release);
+            demandDown();
+            root._loadHoldDown();
+          };
+          /* listeners added during dispatch don't fire for this event */
+          v.addEventListener("loadeddata", release);
+          v.addEventListener("error", release);
           revokeAV1(path);
           delete blobs[path];
           fetchToBlob(path).then(function (url) {
             attachSrc(v, url);
-          }).catch(function () { /* leave the poster/last frame */ });
+          }).catch(function () { release(); /* leave the last frame */ });
         });
       });
+      /* loading veil + pair hold, refcounted: attachSide loads and in-place
+         recoveries overlap, and the veil must outlast all of them */
+      root._loadHold = 0;
+      root._loadHoldUp = function () {
+        root._loadHold += 1;
+        root.classList.add("fa-loading");
+        if (root._pair) root._pair.hold(true);
+      };
+      root._loadHoldDown = function () {
+        root._loadHold = Math.max(0, root._loadHold - 1);
+        if (!root._loadHold) {
+          root.classList.remove("fa-loading");
+          if (root._pair) root._pair.hold(false);
+        }
+      };
       root._pair = pairSync(a, b, rate);
       if (opts.autoplay) root._pair.resume();
 
@@ -872,7 +904,6 @@
     var RATE = parseFloat(cmp.getAttribute("data-rate")) || 0;
 
     var scene = "flowers", left = "sad", right = "gs";
-    var pendingSides = 0;
     var dragged = null;
     benchEl._userPaused = reducedMotion(); /* tiles wait for explicit play too */
 
@@ -906,25 +937,19 @@
       if (v._sideDone) { /* the superseded attach will never complete */
         v.removeEventListener("loadeddata", v._sideDone);
         v._sideDone = null;
-        pendingSides = Math.max(0, pendingSides - 1);
+        cmp._loadHoldDown();
         demandDown();
       }
-      pendingSides += 1;
+      cmp._loadHoldUp(); /* veil + held pair, shared with error recovery */
       demandUp(); /* parks the background chains for the duration */
-      cmp.classList.add("fa-loading");
-      if (cmp._pair) cmp._pair.hold(true); /* stale frames freeze, intent is remembered */
       v.style.opacity = "0.25";
       var done = function () {
         v.removeEventListener("loadeddata", done);
         if (v._sideDone === done) v._sideDone = null;
         v.style.opacity = "";
-        pendingSides = Math.max(0, pendingSides - 1);
         demandDown();
         if (isPaused() && pausedAlignT != null) ensureSeek(v, pausedAlignT);
-        if (!pendingSides) {
-          cmp.classList.remove("fa-loading");
-          if (cmp._pair) cmp._pair.hold(false); /* applies the recorded intent */
-        }
+        cmp._loadHoldDown(); /* releasing applies the recorded intent */
       };
       v._sideDone = done;
       v.addEventListener("loadeddata", done);
@@ -943,12 +968,8 @@
           }).catch(function () {
             if (v._gen !== gen) return;
             v.style.opacity = "";
-            pendingSides = Math.max(0, pendingSides - 1);
             demandDown();
-            if (!pendingSides) {
-              cmp.classList.remove("fa-loading");
-              if (cmp._pair) cmp._pair.hold(false);
-            }
+            cmp._loadHoldDown();
           });
         }, 1200);
       });
@@ -1003,11 +1024,31 @@
          the ring's clock and play state instead of leaving it stuck */
       tv.addEventListener("loadeddata", function () {
         tile.classList.add("loaded");
-        if (isPaused()) {
+        /* a loaded tile must never sit black: Safari paints no frame until
+           a seek or a play. Playing tiles get a one-shot align (ensureSeek
+           would keep yanking them back to a stale target); paused, offscreen
+           or autoplay-denied tiles get the retrying seek so a frame paints. */
+        if (!isPaused() && benchEl._visible !== false) {
+          /* the ring's wrap recipe: exact seek while still paused, play the
+             moment it lands (never seek a playing video); the nudge loop
+             converges the seek-latency residual */
+          var target = ringTime();
+          if (Math.abs(tv.currentTime - target) < 0.05) {
+            tv.play().catch(function () {});
+          } else {
+            tv._lastSnap = Date.now(); /* the join seek counts as a snap */
+            var onJoin = function () {
+              tv.removeEventListener("seeked", onJoin);
+              if (!isPaused() && benchEl._visible !== false) tv.play().catch(function () {});
+            };
+            tv.addEventListener("seeked", onJoin);
+            try { tv.currentTime = target; } catch (e) {
+              tv.removeEventListener("seeked", onJoin);
+              tv.play().catch(function () {});
+            }
+          }
+        } else {
           ensureSeek(tv, ringTime());
-        } else if (benchEl._visible !== false) {
-          try { tv.currentTime = ringTime(); } catch (e) { /* not seekable */ }
-          tv.play().catch(function () {});
         }
       });
       function tileFetch() {
@@ -1061,6 +1102,51 @@
     function ringTime() {
       return pausedAlignT != null ? pausedAlignT : (vB.currentTime || vA.currentTime || 0);
     }
+    /* recovery re-attaches bypass attachSide: whatever lands in a ring
+       video while the arena is paused must sit on the paused frame, and
+       Safari needs the seek to paint anything at all */
+    [vA, vB].forEach(function (v) {
+      v.addEventListener("loadeddata", function () {
+        if (isPaused()) ensureSeek(v, ringTime());
+      });
+    });
+    /* keep playing tiles converged on the ring's clock the way the ring
+       keeps its own pair converged: playbackRate nudges, never seeks on a
+       playing video (a seek always lands behind the moving target and
+       chasing it pins readyState). Wrap-scale gaps get one exact seek
+       with the tile paused, then resume. */
+    setInterval(function () {
+      if (benchEl._visible === false || isPaused() ||
+          !cmp._pair || cmp._pair.isHeld()) return;
+      var ref = ringTime();
+      var base = RATE || 1;
+      benchEl.querySelectorAll(".fa-tile.loaded video").forEach(function (v) {
+        if (v.paused || v.readyState < 2 || v.seeking) return;
+        var d = v.currentTime - ref;
+        /* previews can converge harder than the ring: a strong rate nudge
+           closes medium gaps WHILE PLAYING (a snap always lands one
+           seek-latency behind, so snapping medium gaps on a slow machine
+           livelocks); the paused exact snap is only for wrap-scale gaps */
+        if (Math.abs(d) > 1.5 && Date.now() - (v._lastSnap || 0) > 1200) {
+          v._lastSnap = Date.now();
+          v.pause();
+          var onSeeked = function () {
+            v.removeEventListener("seeked", onSeeked);
+            v.play().catch(function () {});
+          };
+          v.addEventListener("seeked", onSeeked);
+          try { v.currentTime = ringTime(); } catch (e) {
+            v.removeEventListener("seeked", onSeeked);
+            v.play().catch(function () {});
+          }
+        } else if (Math.abs(d) > 0.06) {
+          var adj = Math.max(-0.35, Math.min(0.35, d * 0.9));
+          v.playbackRate = base * (1 - adj);
+        } else if (v.playbackRate !== base) {
+          v.playbackRate = base;
+        }
+      });
+    }, 400);
 
     function syncBenchPlayState() {
       var paused = isPaused();
@@ -1095,7 +1181,6 @@
           v.pause();
           ensureSeek(v, ringTime());
         } else if (!paused && v.paused) {
-          try { v.currentTime = ringTime(); } catch (e) { /* not seekable */ }
           v.play().catch(function () {});
         }
       });

@@ -353,7 +353,7 @@ test("a tile that arrives late joins the ring aligned and playing", async ({ pag
     const tv = document.querySelector('.fa-tile[data-method="mcmc"] video');
     const [, b] = document.querySelectorAll(".fa-compare video");
     return !tv.paused && Math.abs(tv.currentTime - b.currentTime) < 0.6;
-  }), { timeout: 10000 }).toBe(true);
+  }), { timeout: 20000 }).toBe(true); // seek + nudge convergence under load
 });
 
 test("bench watchdog revives a tile stuck paused while the ring plays", async ({ page }) => {
@@ -368,5 +368,28 @@ test("bench watchdog revives a tile stuck paused while the ring plays", async ({
     const tv = document.querySelector('.fa-tile[data-method="mcmc"] video');
     const [, b] = document.querySelectorAll(".fa-compare video");
     return !tv.paused && Math.abs(tv.currentTime - b.currentTime) < 0.6;
-  }), { timeout: 6000 }).toBe(true); // 2 s watchdog period + margin
+  }), { timeout: 12000 }).toBe(true); // watchdog period + nudge convergence
+});
+
+test("ring side with an undecodable payload recovers behind the veil, in sync", async ({ page }) => {
+  // the AV1 twin of bicycle/SAD is poisoned; the element decode error must
+  // trigger a veiled recovery that refetches the H.264 original
+  const garbage = Buffer.from("not an mp4 at all, truly");
+  await page.route("**/av1/flythrough_sad_bicycle.mp4", r =>
+    r.fulfill({ status: 200, contentType: "video/mp4", body: garbage }));
+  const h264Reqs = [];
+  page.on("request", r => {
+    if (/videos\/flythrough_sad_bicycle\.mp4/.test(r.url())) h264Reqs.push(1);
+  });
+  await pageReady(page);
+  await page.locator("#flythrough-arena").scrollIntoViewIfNeeded();
+  await expect.poll(() => bothPlaying(page), { timeout: 60000 }).toBe(true);
+
+  await page.locator('[data-fly-scene="bicycle"]').click();
+  await expect.poll(() => h264Reqs.length > 0, { timeout: 30000 }).toBe(true);
+  await expect(page.locator(".fa-compare")).not.toHaveClass(/fa-loading/, { timeout: 30000 });
+  await expect.poll(() => bothPlaying(page), { timeout: 30000 }).toBe(true);
+  await page.waitForTimeout(1500);
+  const st = await ringState(page);
+  expect(Math.abs(st.tA - st.tB)).toBeLessThan(0.35);
 });

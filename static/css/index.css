@@ -575,6 +575,22 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
 .flythrough-arena .fa-head { margin-bottom: 0.8rem; }
 .fa-compare { background: #000; }
 .fa-compare video { transition: opacity 0.25s ease; }
+/* while a side loads, the play control itself signals loading; clicks
+   still record intent and apply the moment the media arrives */
+.fa-compare.fa-loading .ba-playpause svg { visibility: hidden; }
+.fa-compare.fa-loading .ba-playpause::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: spin 0.9s linear infinite;
+}
 /* the veil and spinner are feedback only: they must never swallow clicks —
    play/pause during a load records intent and has to stay reachable */
 .fa-compare.fa-loading::after {
