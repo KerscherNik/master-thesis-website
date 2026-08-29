@@ -93,6 +93,30 @@
     attempt();
   }
 
+  /* Safari composites NO frame for a video that has never played since
+     its source was attached - readyState 4 and a completed seek still
+     show black. A muted micro play-pause forces the first frame out.
+     Deferred and gated on "zero frames decoded", so browsers that painted
+     already (Chromium does at loadeddata) never run it. */
+  function paintPausedFrame(v, t) {
+    ensureSeek(v, t);
+    setTimeout(function () {
+      if (!v.paused) return; /* something started it; playing paints */
+      var q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+      var frames = q ? q.totalVideoFrames : v.webkitDecodedFrameCount;
+      if (!(frames === 0)) return;
+      var pr;
+      try { pr = v.play(); } catch (e) { return; }
+      if (pr && pr.then) {
+        pr.then(function () { v.pause(); ensureSeek(v, t); })
+          .catch(function () { /* autoplay denied: a user gesture will paint */ });
+      } else {
+        v.pause();
+        ensureSeek(v, t);
+      }
+    }, 250);
+  }
+
   /* Attach a source and force the fetch/decode to start. Elements shipped
      with preload="none" can otherwise suspend at HAVE_METADATA and never
      deliver frames, even from a fully-buffered blob with a pending play(). */
@@ -771,7 +795,7 @@
       if (opts.paused || reducedMotion()) {
         /* a paused source stays paused at the same moment; the native
            controls let the viewer play */
-        if (opts.time) ensureSeek(v, opts.time);
+        paintPausedFrame(v, opts.time || 0);
       } else {
         v.autoplay = true;
         v.play().catch(function () {});
@@ -809,7 +833,7 @@
       if (info.isVideo && origRoot._pair && origRoot._pair.isUserPaused() && el._pair) {
         el._pair.setUserPaused(true);
         var t = origRoot.querySelector("video").currentTime;
-        el.querySelectorAll("video").forEach(function (v) { ensureSeek(v, t); });
+        el.querySelectorAll("video").forEach(function (v) { paintPausedFrame(v, t); });
         if (el._ppBtn) {
           el._ppBtn.innerHTML = PLAY;
           el._ppBtn.setAttribute("aria-label", "Play the fly-through");
@@ -1048,7 +1072,7 @@
             }
           }
         } else {
-          ensureSeek(tv, ringTime());
+          paintPausedFrame(tv, ringTime());
         }
       });
       function tileFetch() {
@@ -1107,7 +1131,7 @@
        Safari needs the seek to paint anything at all */
     [vA, vB].forEach(function (v) {
       v.addEventListener("loadeddata", function () {
-        if (isPaused()) ensureSeek(v, ringTime());
+        if (isPaused()) paintPausedFrame(v, ringTime());
       });
     });
     /* keep playing tiles converged on the ring's clock the way the ring
@@ -1349,6 +1373,7 @@
         v.addEventListener("loadeddata", function once() {
           v.removeEventListener("loadeddata", once);
           seekAll();
+          paintPausedFrame(v, checkpointTime(k));
           settle();
         });
         v.addEventListener("error", function onceE() {
@@ -1404,7 +1429,7 @@
            (aborted on a slow link), land on the current checkpoint */
         var t = v.readyState >= 2 ? v.currentTime : checkpointTime(k);
         attachSrc(v, src(pair[1]));
-        ensureSeek(v, t);
+        paintPausedFrame(v, t);
       });
     });
   }

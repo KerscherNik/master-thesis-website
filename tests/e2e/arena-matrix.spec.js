@@ -83,6 +83,14 @@ test("paused scene switch stays paused and frame-aligned", async ({ page }) => {
   expect(st.btn).toMatch(/Play/);
   expect(Math.abs(st.tA - tRef)).toBeLessThan(0.25);
   expect(Math.abs(st.tB - tRef)).toBeLessThan(0.25);
+
+  // the Safari paint kick (paintPausedFrame) is deferred ~250ms; nothing may
+  // be left playing or misaligned after its window has long passed
+  await page.waitForTimeout(1500);
+  const later = await ringState(page);
+  expect([later.aP, later.bP]).toEqual([true, true]);
+  expect(Math.abs(later.tA - tRef)).toBeLessThan(0.25);
+  expect(Math.abs(later.tB - tRef)).toBeLessThan(0.25);
 });
 
 test("lightbox opened from a paused arena stays paused (tile and expand)", async ({ page }) => {
