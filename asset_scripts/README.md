@@ -21,19 +21,22 @@ progress-logging training runs. Nothing here is submitted automatically.
 
 ## Video file contract with index.html
 
-`static/videos/` names the page watches for (slots stay in placeholder state
-until the file exists, no HTML edit needed):
+`static/videos/` names the page expects (grid: 4 methods x 6 scenes for
+fly-throughs, 2 methods x 4 scenes for training progress; every file also
+needs an AV1 twin under `static/videos/av1/` with the same basename,
+produced by `slurm/web-av1-encode.sh`):
 
 ```
-flythrough_sad_flowers.mp4    flythrough_3dgs_flowers.mp4   flythrough_mcmc_flowers.mp4
-flythrough_sad_bicycle.mp4    flythrough_sad_garden.mp4
-progress_sad_flowers.mp4      progress_3dgs_flowers.mp4
-progress_sad_bicycle.mp4      progress_3dgs_bicycle.mp4
+flythrough_{sad,3dgs,mcmc,fdsgs}_{flowers,bicycle,garden,stump,truck,drjohnson}.mp4
+progress_{sad,3dgs}_{flowers,bicycle,truck,drjohnson}.mp4
 ```
 
-(The jobs also render `flythrough_3dgs_{bicycle,garden}` and
-`flythrough_mcmc_{bicycle,garden}` into `/export/scratch/ra28kuc/webpage_assets/`
-for possible extra sliders.)
+Fly-throughs: 240 frames at 30 fps on the shared per-scene dolly path
+(flowers/garden/truck dolly 0.45, bicycle/stump 0.60, drjohnson 0.35 with
+orbit scale 0.75). Progress videos: 273 frames (11 checkpoints x 21 frames,
+final held 3x) — the page's scrubber math depends on exactly this layout.
+FDS-GS renders require the FDS-GS codebase and `fdsgs` conda env (their
+plys crash the vanilla rasterizer).
 
 ## Submission order
 
