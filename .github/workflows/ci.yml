@@ -109,6 +109,7 @@ jobs:
           sed -e "s|static/css/index.css|static/css/index.css?v=${GITHUB_SHA}|" \
               -e "s|static/js/core.js|static/js/core.js?v=${GITHUB_SHA}|" \
               -e "s|static/js/compare.js|static/js/compare.js?v=${GITHUB_SHA}|" \
+              -e "s|__BUILD__|${GITHUB_SHA}|" \
               index.html > _site/index.html
           cp robots.txt manifest.webmanifest _site/
           sed "s/__BUILD__/${GITHUB_SHA}/" sw.js > _site/sw.js

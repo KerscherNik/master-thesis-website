@@ -1446,10 +1446,28 @@
     });
   }
 
-  /* offline-capable repeat visits: cache-first for static assets */
-  if ("serviceWorker" in navigator && location.protocol === "https:") {
-    navigator.serviceWorker.register("sw.js").catch(function () { /* optional */ });
+  /* The old caching service worker could pin Safari visitors to a stale
+     deploy (its update checks are unreliable); it is gone for good.
+     Unregister any leftover worker and clear its caches. */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      regs.forEach(function (r) { r.unregister().catch(function () {}); });
+    }).catch(function () {});
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (keys) {
+        keys.forEach(function (k) { caches.delete(k).catch(function () {}); });
+      }).catch(function () {});
+    }
   }
+
+  /* visible build id: turns "still broken" reports into diagnosable ones */
+  (function () {
+    var tag = document.querySelector("[data-build]");
+    var b = tag ? tag.getAttribute("data-build") : "";
+    var label = (!b || b.indexOf("__") === 0) ? "local" : b.slice(0, 7);
+    if (tag) tag.textContent = "build " + label;
+    try { console.info("SAD page build: " + label); } catch (e) { /* ignore */ }
+  })();
 
   document.addEventListener("DOMContentLoaded", function () {
     initLightbox();

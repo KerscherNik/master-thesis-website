@@ -890,3 +890,6 @@ footer {
 }
 footer p { max-width: 640px; margin: 0 auto 0.7rem; }
 footer .footer-a11y { font-size: 0.85rem; }
+
+/* build id in the footer: small, muted, but findable when reporting bugs */
+.build-tag { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
