@@ -548,6 +548,16 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
   cursor: pointer;
 }
 .lb-close:hover { background: rgba(255, 255, 255, 0.25); }
+.lb-spinner {
+  position: absolute;
+  top: calc(50% - 19px);
+  left: calc(50% - 19px);
+  width: 38px;
+  height: 38px;
+  border-width: 3px;
+  pointer-events: none;
+}
+.lightbox .lb-stage { position: relative; }
 .lb-close svg { width: 20px; height: 20px; fill: currentColor; }
 
 /* ---------- fly-through arena ---------- */
@@ -565,24 +575,29 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
 .flythrough-arena .fa-head { margin-bottom: 0.8rem; }
 .fa-compare { background: #000; }
 .fa-compare video { transition: opacity 0.25s ease; }
+/* the veil and spinner are feedback only: they must never swallow clicks —
+   play/pause during a load records intent and has to stay reachable */
 .fa-compare.fa-loading::after {
   content: "";
   position: absolute;
   inset: 0;
   background: rgba(12, 14, 17, 0.45);
+  z-index: 6;
+  pointer-events: none;
 }
 .fa-compare.fa-loading::before {
   content: "";
   position: absolute;
-  top: calc(50% - 13px);
-  left: calc(50% - 13px);
-  width: 26px;
-  height: 26px;
+  top: calc(50% - 19px);
+  left: calc(50% - 19px);
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   animation: spin 0.9s linear infinite;
-  z-index: 9;
+  z-index: 7;
+  pointer-events: none;
 }
 
 /* drop zones: visible only while a bench tile is dragged */

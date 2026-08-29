@@ -103,7 +103,14 @@ jobs:
       - name: Assemble site (page + assets only, no dev tooling)
         run: |
           mkdir -p _site
-          cp index.html robots.txt manifest.webmanifest _site/
+          # stamp asset URLs with the deploy SHA: the SW serves HTML
+          # network-first but assets cache-first, so unversioned URLs let a
+          # fresh page run the previous deploy's JS (a real Safari incident)
+          sed -e "s|static/css/index.css|static/css/index.css?v=${GITHUB_SHA}|" \
+              -e "s|static/js/core.js|static/js/core.js?v=${GITHUB_SHA}|" \
+              -e "s|static/js/compare.js|static/js/compare.js?v=${GITHUB_SHA}|" \
+              index.html > _site/index.html
+          cp robots.txt manifest.webmanifest _site/
           sed "s/__BUILD__/${GITHUB_SHA}/" sw.js > _site/sw.js
           cp -r static _site/static
 

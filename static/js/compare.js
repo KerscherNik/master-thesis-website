@@ -345,13 +345,18 @@
     }
     function start() {
       if (!active || userPaused || held || a.readyState < 2 || b.readyState < 2) return;
+      /* never resume mid-seek: playing b now hands it a head start equal to
+         a's seek latency (the watchdog loves doing this right after a wrap).
+         "seeked" re-enters start() with the pair already aligned. */
+      if (a.seeking) return;
       /* hard-align only when playback is being (re)started or the gap is
          wrap-scale. While playing, small drift is converged by the tick's
          playbackRate nudge - a seek here would land behind the still-playing
          partner, whose "canplay" re-enters start(): an endless seek chase. */
       var d = Math.abs(a.currentTime - b.currentTime);
-      if ((b.paused || d > 0.75) && d > 0.08 && !a.seeking) {
+      if ((b.paused || d > 0.75) && d > 0.08) {
         try { a.currentTime = b.currentTime; } catch (e) { /* not seekable yet */ }
+        if (a.seeking) return;
       }
       a.play().catch(function () {});
       b.play().catch(function () {});
@@ -369,6 +374,9 @@
       });
       v.addEventListener("canplay", function () { if (active) start(); });
     });
+    /* only a is ever seek-aligned; once the seek lands, resume the pair
+       (start() refused to while a.seeking, so this is the re-entry point) */
+    a.addEventListener("seeked", function () { if (active) start(); });
     /* watchdog: a visible pair must be playing. If either side ends up
        paused while both are decodable (missed event, rejected play(),
        hot-reload races), re-enter start() — it re-syncs and resumes. */
@@ -581,9 +589,31 @@
     var heldPairs = [];
     var opener = null;
 
+    function spinUntilLoaded(stage) {
+      var vids = stage.querySelectorAll("video");
+      if (!vids.length) return;
+      var spin = document.createElement("span");
+      spin.className = "spinner lb-spinner";
+      spin.setAttribute("aria-hidden", "true");
+      stage.appendChild(spin);
+      var done = function () { if (spin.parentNode) spin.remove(); };
+      var ready = 0;
+      vids.forEach(function (v) {
+        if (v.readyState >= 2) { ready += 1; return; }
+        v.addEventListener("loadeddata", function once() {
+          v.removeEventListener("loadeddata", once);
+          ready += 1;
+          if (ready >= vids.length) done();
+        });
+        v.addEventListener("error", done); // never spin forever over a dead video
+      });
+      if (ready >= vids.length) done();
+    }
+
     openLightbox = function (build, captionText) {
       stage.innerHTML = "";
       build(stage);
+      spinUntilLoaded(stage);
       cap.textContent = captionText || "";
       cap.style.display = captionText ? "" : "none";
       opener = document.activeElement;
