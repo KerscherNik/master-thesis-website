@@ -29,6 +29,10 @@
   var clamp = core.clamp;
 
   var isFile = location.protocol === "file:";
+  /* prefers-reduced-motion cannot stop <video autoplay> via CSS; honour it in
+     JS: nothing autoplays, everything waits for an explicit play action */
+  var REDUCED = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+  function reducedMotion() { return !!REDUCED.matches; }
   var blobs = {}; /* path -> object URL, once fully fetched */
 
   /* AV1 twins are ~50% smaller at the same visual quality; fall back to the
@@ -55,14 +59,31 @@
 
   var inflight = {}; /* path -> pending Promise, so nothing fetches twice */
 
-  function fetchToBlob(path, onBytes, onTotal) {
+  /* background downloads must never block the back/forward cache: abort them
+     on pagehide, re-arm and resume when the page is restored (pageshow with
+     persisted). They also run at low network priority so they cannot compete
+     with anything the user asked for. */
+  var bgAborter = ("AbortController" in window) ? new AbortController() : null;
+  var bgResumers = [];
+  window.addEventListener("pagehide", function () {
+    if (bgAborter) bgAborter.abort();
+  });
+  window.addEventListener("pageshow", function (ev) {
+    if (!ev.persisted) return;
+    if ("AbortController" in window) bgAborter = new AbortController();
+    bgResumers.splice(0).forEach(function (resume) { resume(); });
+  });
+  function isAbort(err) { return !!(err && err.name === "AbortError"); }
+
+  function fetchToBlob(path, onBytes, onTotal, bg) {
     if (blobs[path]) return Promise.resolve(blobs[path]);
     if (inflight[path]) return inflight[path];
-    var p = doFetchToBlob(netPath(path), onBytes, onTotal)
+    var p = doFetchToBlob(netPath(path), onBytes, onTotal, bg)
       .catch(function (err) {
+        if (isAbort(err)) throw err; /* page is leaving; not a media failure */
         /* AV1 twin missing or failed: retry the H.264 original */
         if (netPath(path) === path) throw err;
-        return doFetchToBlob(path, onBytes, onTotal);
+        return doFetchToBlob(path, onBytes, onTotal, bg);
       })
       .then(function (url) {
         blobs[path] = url;
@@ -76,8 +97,13 @@
     return p;
   }
 
-  function doFetchToBlob(path, onBytes, onTotal) {
-    return fetch(path).then(function (res) {
+  function doFetchToBlob(path, onBytes, onTotal, bg) {
+    var init = {};
+    if (bg) {
+      if (bgAborter) init.signal = bgAborter.signal;
+      init.priority = "low";
+    }
+    return fetch(path, init).then(function (res) {
       if (!res.ok) throw new Error("HTTP " + res.status + " for " + path);
       var len = +res.headers.get("Content-Length") || 0;
       if (onTotal) onTotal(len);
@@ -205,13 +231,16 @@
     function nextLazy() {
       if (!queue.length) return;
       var t = queue.shift();
-      fetchToBlob(t.path)
+      fetchToBlob(t.path, null, null, true)
         .then(function (url) {
           if (t.v) attachSrc(t.v, url);
           else document.dispatchEvent(new CustomEvent("blob-ready", { detail: t.path }));
         })
-        .catch(function () { if (t.v) markFailed(t.v); })
-        .then(nextLazy);
+        .catch(function (err) {
+          if (isAbort(err)) { queue.unshift(t); bgResumers.push(nextLazy); return "parked"; }
+          if (t.v) markFailed(t.v);
+        })
+        .then(function (state) { if (state !== "parked") nextLazy(); });
     }
 
     /* escape hatch on slow connections */
@@ -232,7 +261,9 @@
       if (rate) { v.defaultPlaybackRate = rate; v.playbackRate = rate; }
     });
     var active = false, rafOn = false;
-    var userPaused = false; /* explicit pause via the button wins over all auto-play */
+    /* explicit pause wins over all auto-play; under prefers-reduced-motion
+       nothing starts until the user presses play */
+    var userPaused = reducedMotion();
     function tick() {
       if (active && !b.paused && a.readyState >= 2 &&
           Math.abs(a.currentTime - b.currentTime) > 0.08) {
@@ -288,12 +319,20 @@
 
   function initCompare(root, opts) {
     opts = opts || {};
-    var media = Array.prototype.filter.call(root.children, function (el) {
-      return el.tagName === "IMG" || el.tagName === "VIDEO";
+    /* children may be <img>, <video>, or <picture> wrapping an <img> */
+    var media = [], wraps = [];
+    Array.prototype.forEach.call(root.children, function (el) {
+      if (el.tagName === "IMG" || el.tagName === "VIDEO") {
+        media.push(el); wraps.push(el);
+      } else if (el.tagName === "PICTURE") {
+        var im = el.querySelector("img");
+        if (im) { media.push(im); wraps.push(el); }
+      }
     });
     if (media.length !== 2) return;
     var a = media[0]; /* left side */
     var b = media[1]; /* right side, stays in flow and sets the height */
+    var wrapA = wraps[0], wrapB = wraps[1];
     var isVideo = a.tagName === "VIDEO" && b.tagName === "VIDEO";
 
     var rate = parseFloat(root.getAttribute("data-rate")) || 0;
@@ -309,8 +348,8 @@
 
     var top = document.createElement("div");
     top.className = "ba-top";
-    root.insertBefore(top, b);
-    top.appendChild(a);
+    root.insertBefore(top, wrapB);
+    top.appendChild(wrapA);
 
     var divider = document.createElement("div");
     divider.className = "ba-divider";
@@ -331,11 +370,21 @@
     });
 
     var pos = 50;
+    function plainLabels() {
+      var l = (root._compare && root._compare.labels) || [];
+      return [
+        (l[0] || "left").replace(/<[^>]*>/g, ""),
+        (l[1] || "right").replace(/<[^>]*>/g, "")
+      ];
+    }
     function apply() {
       top.style.clipPath = "inset(0 " + (100 - pos) + "% 0 0)";
       divider.style.left = pos + "%";
       handle.style.left = pos + "%";
       handle.setAttribute("aria-valuenow", Math.round(pos));
+      var names = plainLabels();
+      handle.setAttribute("aria-valuetext",
+        Math.round(pos) + "% " + names[0] + ", " + (100 - Math.round(pos)) + "% " + names[1]);
     }
 
     /* the slider role lives on the handle, not the container: the container
@@ -401,8 +450,9 @@
       var pp = document.createElement("button");
       pp.type = "button";
       pp.className = "ba-playpause";
-      pp.innerHTML = PAUSE;
-      pp.setAttribute("aria-label", "Pause the fly-through");
+      pp.innerHTML = root._pair.isUserPaused() ? PLAY : PAUSE;
+      pp.setAttribute("aria-label",
+        root._pair.isUserPaused() ? "Play the fly-through" : "Pause the fly-through");
       pp.addEventListener("pointerdown", function (ev) { ev.stopPropagation(); });
       pp.addEventListener("click", function (ev) {
         ev.stopPropagation();
@@ -432,10 +482,10 @@
   /* ---------- lightbox ---------- */
 
   function initLightbox() {
-    var lb = document.createElement("div");
+    /* native <dialog>: free focus containment, Escape, inert background */
+    var lb = document.createElement("dialog");
     lb.className = "lightbox";
-    lb.setAttribute("role", "dialog");
-    lb.setAttribute("aria-modal", "true");
+    lb.setAttribute("aria-label", "Enlarged view");
     lb.innerHTML =
       '<button class="lb-close" type="button" aria-label="Close">' + CLOSE + "</button>" +
       '<div class="lb-stage"></div><p class="lb-caption"></p>';
@@ -451,10 +501,10 @@
       build(stage);
       cap.textContent = captionText || "";
       cap.style.display = captionText ? "" : "none";
+      opener = document.activeElement;
+      if (lb.showModal && !lb.open) lb.showModal();
       lb.classList.add("open");
       document.body.classList.add("no-scroll");
-      /* move focus into the dialog; return it on close */
-      opener = document.activeElement;
       closeBtn.focus();
       /* silence page videos behind the overlay */
       pausedPairs = [];
@@ -464,6 +514,7 @@
     };
     closeLightbox = function () {
       if (!lb.classList.contains("open")) return;
+      if (lb.open && lb.close) lb.close(); /* native cleanup + focus restore */
       lb.classList.remove("open");
       document.body.classList.remove("no-scroll");
       if (opener && opener.focus) opener.focus();
@@ -480,23 +531,15 @@
     lb.addEventListener("click", function (ev) {
       if (ev.target === lb || ev.target.closest(".lb-close")) closeLightbox();
     });
+    /* native Escape fires "cancel"; route it through the same cleanup.
+       Focus containment is native too: showModal() makes the page inert,
+       so the old manual Tab trap is gone. */
+    lb.addEventListener("cancel", function (ev) {
+      ev.preventDefault();
+      closeLightbox();
+    });
     document.addEventListener("keydown", function (ev) {
       if (ev.key === "Escape") closeLightbox();
-      /* keep Tab inside the dialog while it is open */
-      if (ev.key === "Tab" && lb.classList.contains("open")) {
-        var focusables = lb.querySelectorAll(
-          "button, video[controls], [tabindex]:not([tabindex='-1'])");
-        if (!focusables.length) return;
-        var first = focusables[0];
-        var last = focusables[focusables.length - 1];
-        if (ev.shiftKey && document.activeElement === first) {
-          last.focus(); ev.preventDefault();
-        } else if (!ev.shiftKey && document.activeElement === last) {
-          first.focus(); ev.preventDefault();
-        } else if (!lb.contains(document.activeElement)) {
-          first.focus(); ev.preventDefault();
-        }
-      }
     });
   }
 
@@ -540,10 +583,9 @@
       v.loop = true;
       v.playsInline = true;
       v.controls = true;
-      v.autoplay = true;
       if (rate) { v.defaultPlaybackRate = rate; v.playbackRate = rate; }
       stage.appendChild(v);
-      v.play().catch(function () {});
+      if (!reducedMotion()) { v.autoplay = true; v.play().catch(function () {}); }
     }, caption);
   }
 
@@ -556,7 +598,8 @@
       if (info.labels[0]) el.setAttribute("data-label-a", info.labels[0]);
       if (info.labels[1]) el.setAttribute("data-label-b", info.labels[1]);
       if (info.rate) el.setAttribute("data-rate", info.rate);
-      info.srcs.forEach(function (s) {
+      var liveImgs = origRoot.querySelectorAll("img");
+      info.srcs.forEach(function (s, i) {
         var m;
         if (info.isVideo) {
           m = document.createElement("video");
@@ -565,7 +608,7 @@
           m.src = src(s);
         } else {
           m = document.createElement("img");
-          m.src = s;
+          m.src = (liveImgs[i] && liveImgs[i].currentSrc) || s;
           m.alt = "";
         }
         el.appendChild(m);
@@ -611,7 +654,7 @@
     video.removeAttribute("controls");
     function loaded() {
       slot.classList.add("loaded");
-      if (slot._visible !== false) video.play().catch(function () {});
+      if (slot._visible !== false && !reducedMotion()) video.play().catch(function () {});
     }
     if (video.readyState >= 2) loaded();
     else video.addEventListener("loadeddata", loaded, { once: true });
@@ -663,6 +706,7 @@
     var scene = "flowers", left = "sad", right = "gs";
     var pendingSides = 0;
     var dragged = null;
+    benchEl._userPaused = reducedMotion(); /* tiles wait for explicit play too */
 
     function label(m) { return core.FLY_METHODS[m].label; }
     function benched() { return core.benchedMethods(left, right); }
@@ -677,8 +721,10 @@
       var hd = cmp.querySelector(".ba-handle");
       if (hd) {
         hd.setAttribute("aria-label",
-          "Comparison slider: " + label(left) + " versus " + label(right));
+          "Comparison slider: " + label(left) + " versus " + label(right) + ", " + scene + " scene");
       }
+      vA.setAttribute("aria-label", label(left) + " fly-through, " + scene + " scene");
+      vB.setAttribute("aria-label", label(right) + " fly-through, " + scene + " scene");
       if (cmp._compare) {
         cmp._compare.srcs = [core.flyPath(scene, left), core.flyPath(scene, right)];
         cmp._compare.labels = [label(left), label(right)];
@@ -724,6 +770,7 @@
       tile.querySelector(".fa-tile-name").textContent = label(m);
 
       var tv = tile.querySelector("video");
+      tv.setAttribute("aria-label", label(m) + " fly-through preview, " + scene + " scene");
       if (RATE) { tv.defaultPlaybackRate = RATE; tv.playbackRate = RATE; }
       fetchToBlob(core.flyPath(scene, m)).then(function (url) {
         tv.addEventListener("loadeddata", function done() {
@@ -871,7 +918,9 @@
         if (!rest.length) return;
         if (pendingSides > 0) { setTimeout(next, 400); return; }
         var p = rest.shift();
-        fetchToBlob(p).catch(function () {}).then(next);
+        fetchToBlob(p, null, null, true).catch(function (err) {
+          if (isAbort(err)) { rest.unshift(p); bgResumers.push(next); return "parked"; }
+        }).then(function (state) { if (state !== "parked") next(); });
       }
       next();
       next();
@@ -916,6 +965,8 @@
       });
       label.textContent = core.formatIteration(CHECKPOINTS[k]);
       slider.value = k;
+      slider.setAttribute("aria-valuetext",
+        core.formatIteration(CHECKPOINTS[k]) + " of 30,000");
     }
 
     function loadScene(s) {
@@ -987,6 +1038,16 @@
   }
 
   /* ---------- boot ---------- */
+
+  if (REDUCED.addEventListener) {
+    REDUCED.addEventListener("change", function () {
+      if (!REDUCED.matches) return; /* user can press play; nothing to force */
+      document.querySelectorAll(".ba-compare").forEach(function (el) {
+        if (el._pair && !el._pair.isUserPaused() && el._ppBtn) el._ppBtn.click();
+      });
+      document.querySelectorAll(".video-slot video, .fa-bench video").forEach(function (v) { v.pause(); });
+    });
+  }
 
   /* offline-capable repeat visits: cache-first for static assets */
   if ("serviceWorker" in navigator && location.protocol === "https:") {

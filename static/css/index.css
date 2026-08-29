@@ -59,10 +59,32 @@ a:focus-visible, button:focus-visible, input:focus-visible,
 /* height:auto is load-bearing: images carry width/height attributes for
    layout stability, so a CSS-shrunk width must re-derive the height */
 img, video { max-width: 100%; height: auto; display: block; }
+/* <picture> wrappers must be layout-transparent */
+picture { display: contents; }
+
+/* skip link: visually hidden until keyboard focus */
+.skip-link {
+  position: fixed;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 300;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transform: translateY(-300%);
+}
+.skip-link:focus {
+  transform: none;
+  text-decoration: none;
+}
 
 /* ---------- hero ---------- */
 
 header.hero { text-align: center; padding: 4.25rem 1.25rem 2.75rem; }
+
+h1, h2, h3 { text-wrap: balance; }
+.caption, .takeaway, .prose p { text-wrap: pretty; }
 
 .hero h1 {
   font-family: var(--serif);
@@ -127,6 +149,7 @@ h3 {
 }
 h2 + h3 { margin-top: 2.5rem; }
 
+.prose.centered { margin: 0 auto; }
 .prose p { margin-bottom: 1rem; text-align: justify; hyphens: auto; }
 .prose p:last-child { margin-bottom: 0; }
 
@@ -285,6 +308,7 @@ table.metrics thead tr:last-child th { border-bottom: 1.5px solid var(--ink); }
 table.metrics td:first-child, table.metrics th:first-child { text-align: left; }
 table.metrics tbody tr.ours { background: #e8f2f1; }
 table.metrics tbody tr.rule td { border-top: 1px solid var(--line); }
+table.metrics td.row-note { text-align: left; }
 table.metrics .best { font-weight: 700; }
 table.metrics .unit { font-weight: 400; color: var(--muted); font-size: 0.85em; }
 
@@ -461,11 +485,19 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
 
 /* ---------- lightbox ---------- */
 
+/* the lightbox is a native <dialog>: reset UA chrome, fill the viewport */
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 150;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
   background: rgba(12, 14, 17, 0.93);
+  color: inherit;
   display: none;
   flex-direction: column;
   align-items: center;
@@ -473,6 +505,7 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
   padding: 3vh 3vw;
 }
 .lightbox.open { display: flex; }
+.lightbox::backdrop { background: transparent; }
 .lightbox .lb-stage {
   width: 100%;
   max-width: min(1500px, 94vw);
@@ -782,6 +815,19 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
   color: var(--muted);
 }
 
+/* ---------- forced colors (Windows High Contrast) ----------
+   backgrounds and shadows are stripped in this mode; structure must
+   survive through borders and system colors */
+@media (forced-colors: active) {
+  .ba-compare .ba-divider { background: none; width: 0; border-left: 2px solid CanvasText; }
+  .ba-compare .ba-handle { border: 2px solid ButtonText; background: ButtonFace; }
+  .ba-compare .ba-label, .pe-tag { border: 1px solid CanvasText; }
+  .pe-tab.active, .fa-tile { border: 2px solid Highlight; }
+  .ba-playpause, .ba-expand, .lb-close, .fa-swap, .pe-play { border: 1px solid ButtonText; }
+  .loader-fill { background: Highlight; }
+  .fa-drop { border: 2px dashed CanvasText; }
+}
+
 /* ---------- print / reader ---------- */
 
 @media print {
@@ -804,3 +850,4 @@ footer {
   text-align: center;
 }
 footer p { max-width: 640px; margin: 0 auto 0.7rem; }
+footer .footer-a11y { font-size: 0.85rem; }

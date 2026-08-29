@@ -1,0 +1,14 @@
+{
+  "name": "A High-Frequency Perspective on 3D Gaussian Splatting",
+  "short_name": "SAD thesis",
+  "description": "Spectral-Aware Densification: fewer Gaussians at matched quality.",
+  "start_url": ".",
+  "display": "browser",
+  "background_color": "#fcfcfa",
+  "theme_color": "#fcfcfa",
+  "icons": [
+    { "src": "static/images/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "static/images/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "static/images/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

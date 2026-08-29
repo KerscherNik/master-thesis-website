@@ -49,6 +49,30 @@ requests like GitHub Pages does — use `npm run serve`
 (`tests/server.py`), not `python -m http.server`, or videos never become
 seekable once Chromium suspends their download.
 
+## Security, accessibility, performance posture
+
+Grounded in a 2026 research pass (OWASP/MDN/W3C/web.dev + live probing of
+GitHub Pages):
+
+- **Security**: meta CSP (`default-src 'none'`, everything explicit) — the
+  strongest policy possible on Pages, which allows no custom headers
+  (frame-ancestors is therefore not settable; acceptable for a read-only
+  page). `no-referrer`, crawl-allowed robots.txt + `noindex` (crawl-blocking
+  would hide the noindex), SHA-pinned Actions with least-privilege
+  permissions and Dependabot, service worker never caches error pages.
+- **Accessibility (WCAG 2.2 AA)**: zero axe violations enforced in CI, plus
+  the manual-only criteria: single-pointer alternatives for every drag
+  interaction, one pause control freezing all moving content, JS-honored
+  prefers-reduced-motion (CSS cannot stop video autoplay), aria-valuetext
+  on all sliders, labeled videos, native <dialog> lightbox, skip link,
+  forced-colors support, and a footer accessibility statement.
+- **Performance**: AV1+H.264 dual codec, AVIF+JPEG dual images (SSIM-gated),
+  hero-only critical path, low-priority background fetches that abort on
+  pagehide (bfcache-safe) and resume on restore, service worker for
+  0-byte repeat visits, text-wrap balance/pretty, web app manifest.
+  The loading overlay is a deliberate design choice kept over poster-first
+  reveal; with noindex there is no ranking cost.
+
 ## Tests
 
 ```bash

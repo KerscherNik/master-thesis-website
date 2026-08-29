@@ -53,3 +53,64 @@ test("images declare dimensions (no layout shift) and lazy-load below the fold",
   const lazyCount = await page.locator('img[loading="lazy"]').count();
   expect(lazyCount).toBeGreaterThan(10);
 });
+
+test("skip link appears on focus and jumps to main content", async ({ page }) => {
+  await pageReady(page);
+  await page.keyboard.press("Tab");
+  await expect(page.locator(".skip-link")).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#main/);
+});
+
+test("sliders announce meaningful values via aria-valuetext", async ({ page }) => {
+  await pageReady(page);
+  const handle = page.locator(".fa-compare .ba-handle");
+  await handle.scrollIntoViewIfNeeded();
+  await expect(handle).toHaveAttribute("aria-valuetext", /50% SAD \(ours\), 50% 3DGS/);
+  const range = page.locator("#progress-explorer input[type=range]");
+  await range.scrollIntoViewIfNeeded();
+  await range.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(range).toHaveAttribute("aria-valuetext", "iteration 1,000 of 30,000");
+});
+
+test("prefers-reduced-motion stops all video autoplay until explicit play", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await pageReady(page);
+  await page.locator("#flythrough-arena").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(2500);
+  const state = await page.evaluate(() =>
+    [...document.querySelectorAll(".fa-compare video, .fa-bench video")].map(v => v.paused));
+  expect(state.every(Boolean)).toBe(true);
+  await expect(page.locator(".fa-compare .ba-playpause")).toHaveAttribute("aria-label", /Play/);
+
+  // explicit play overrides the preference (per WCAG/Apple pattern)
+  await page.locator(".fa-compare .ba-playpause").click();
+  await expect.poll(() => page.evaluate(() => {
+    const [a, b] = document.querySelectorAll(".fa-compare video");
+    return !a.paused && !b.paused;
+  }), { timeout: 20000 }).toBe(true);
+});
+
+test("forced-colors mode keeps the comparison structure visible", async ({ page }) => {
+  await page.emulateMedia({ forcedColors: "active" });
+  await pageReady(page);
+  const divider = page.locator(".fa-compare .ba-divider");
+  await divider.scrollIntoViewIfNeeded();
+  const border = await divider.evaluate(el => getComputedStyle(el).borderLeftWidth);
+  expect(border).toBe("2px");
+});
+
+test("lightbox is a native modal dialog", async ({ page }) => {
+  await pageReady(page);
+  const fig = page.locator(".figure-block img").first();
+  await fig.scrollIntoViewIfNeeded();
+  await fig.click();
+  const isDialog = await page.evaluate(() => {
+    const lb = document.querySelector(".lightbox");
+    return lb.tagName === "DIALOG" && lb.open === true;
+  });
+  expect(isDialog).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".lightbox")).not.toHaveClass(/open/);
+});

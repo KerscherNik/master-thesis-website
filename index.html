@@ -3,6 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- GitHub Pages sends no security headers; a meta CSP covers everything a
+       meta can (frame-ancestors/sandbox/report-uri are header-only and thus
+       impossible on Pages). The style hash covers the noscript fallback style;
+       recompute it if that style ever changes. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'sha256-pL9KEwHIUsWUVYysnBQMImvu23R5eBbO6wzLsoEdu9w='; img-src 'self'; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <meta name="description"
         content="Spectral-Aware Densification (SAD): steering 3D Gaussian Splatting densification with a frequency-domain deficit signal. About 25% fewer Gaussians at matched quality on Mip-NeRF 360.">
   <!-- keep the page out of search engines while the thesis is unpublished;
@@ -14,7 +20,11 @@
   <meta property="og:description" content="Spectral-Aware Densification (SAD): about 25% fewer Gaussians at matched quality on Mip-NeRF 360, steered by a frequency-domain deficit signal.">
   <meta property="og:url" content="https://kerschernik.github.io/master-thesis-website/">
   <meta property="og:image" content="https://kerschernik.github.io/master-thesis-website/static/images/teaser/flowers_sad.jpg">
+  <meta property="og:image:width" content="1256">
+  <meta property="og:image:height" content="828">
+  <meta property="og:image:alt" content="Side-by-side rendering of the flowers scene: SAD versus 3DGS">
   <meta name="twitter:card" content="summary_large_image">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>A High-Frequency Perspective on 3D Gaussian Splatting</title>
   <link rel="icon" href="static/images/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="static/css/index.css">
@@ -22,6 +32,8 @@
   <script src="static/js/compare.js" defer></script>
 </head>
 <body class="loading">
+
+<a class="skip-link" href="#main">Skip to content</a>
 
 <!-- ================= asset loader ================= -->
 <div id="loader" role="status" aria-label="Loading page assets">
@@ -73,13 +85,13 @@
   </nav>
 </header>
 
-<main>
+<main id="main">
 
 <!-- ================= teaser ================= -->
 <section class="container">
   <div class="ba-compare" data-label-a="<strong>SAD</strong> (ours) &middot; 3.40M Gaussians" data-label-b="3DGS &middot; 2.76M Gaussians">
-    <img src="static/images/teaser/flowers_sad.jpg" fetchpriority="high" alt="SAD render of the Mip-NeRF 360 flowers test view" width="1256" height="828" decoding="async">
-    <img src="static/images/teaser/flowers_3dgs.jpg" fetchpriority="high" alt="3DGS render of the same flowers test view" width="1256" height="828" decoding="async">
+    <picture><source type="image/avif" srcset="static/images/teaser/flowers_sad.avif"><img src="static/images/teaser/flowers_sad.jpg" fetchpriority="high" alt="SAD render of the Mip-NeRF 360 flowers test view" width="1256" height="828" decoding="async"></picture>
+    <picture><source type="image/avif" srcset="static/images/teaser/flowers_3dgs.avif"><img src="static/images/teaser/flowers_3dgs.jpg" fetchpriority="high" alt="3DGS render of the same flowers test view" width="1256" height="828" decoding="async"></picture>
   </div>
   <p class="caption">Held-out test view of <em>flowers</em> (Mip-NeRF&nbsp;360). Drag the bar: SAD recovers petal and grass
      detail that the baseline blurs. On this scene SAD gains +0.29&nbsp;dB PSNR, +0.036 SSIM and &minus;0.060 LPIPS.</p>
@@ -117,7 +129,7 @@
 <!-- ================= method ================= -->
 <section class="container">
   <h2>Method</h2>
-  <div class="prose narrow" style="margin: 0 auto;">
+  <div class="prose narrow centered">
     <p>During training, SAD compares each render against its training image in the frequency domain: both are cut into
        overlapping patches, transformed with a windowed FFT, and the shortfall of high-frequency energy in the render
        is aggregated into a per-pixel <em>spectral deficit</em> map. The deficit replaces the gradient heuristic on both
@@ -129,27 +141,27 @@
   <div class="method-strip">
     <figure>
       <span class="step">1</span>
-      <img src="static/images/method/gt_crop.jpg" alt="Ground-truth crop of a foliage region" width="806" height="806" loading="lazy" decoding="async">
+      <picture><source type="image/avif" srcset="static/images/method/gt_crop.avif"><img src="static/images/method/gt_crop.jpg" alt="Ground-truth crop of a foliage region" width="806" height="806" loading="lazy" decoding="async"></picture>
       <figcaption>Training image (crop)</figcaption>
     </figure>
     <figure>
       <span class="step">2</span>
-      <img src="static/images/method/render_crop.jpg" alt="Baseline render of the same crop, foliage blurred" width="806" height="806" loading="lazy" decoding="async">
+      <picture><source type="image/avif" srcset="static/images/method/render_crop.avif"><img src="static/images/method/render_crop.jpg" alt="Baseline render of the same crop, foliage blurred" width="806" height="806" loading="lazy" decoding="async"></picture>
       <figcaption>Render, mid-training</figcaption>
     </figure>
     <figure>
       <span class="step">3</span>
-      <img src="static/images/method/residual.jpg" alt="Per-pixel residual heatmap" width="966" height="966" loading="lazy" decoding="async">
+      <picture><source type="image/avif" srcset="static/images/method/residual.avif"><img src="static/images/method/residual.jpg" alt="Per-pixel residual heatmap" width="966" height="966" loading="lazy" decoding="async"></picture>
       <figcaption>Pixel residual &mdash; flat where blur hides</figcaption>
     </figure>
     <figure class="deficit">
       <span class="step">4</span>
-      <img src="static/images/method/deficit.jpg" alt="Windowed-Fourier high-frequency deficit heatmap" width="966" height="966" loading="lazy" decoding="async">
+      <picture><source type="image/avif" srcset="static/images/method/deficit.avif"><img src="static/images/method/deficit.jpg" alt="Windowed-Fourier high-frequency deficit heatmap" width="966" height="966" loading="lazy" decoding="async"></picture>
       <figcaption>Spectral deficit &mdash; missing high frequencies light up</figcaption>
     </figure>
     <figure>
       <span class="step">5</span>
-      <img src="static/images/method/postsad_crop.jpg" alt="Render after SAD densification" width="1206" height="1206" loading="lazy" decoding="async">
+      <picture><source type="image/avif" srcset="static/images/method/postsad_crop.avif"><img src="static/images/method/postsad_crop.jpg" alt="Render after SAD densification" width="1206" height="1206" loading="lazy" decoding="async"></picture>
       <figcaption>Densify + prune by deficit</figcaption>
     </figure>
   </div>
@@ -189,7 +201,7 @@
           <td>28.69</td><td>0.853</td><td>0.171</td><td>3.40</td><td>220</td>
         </tr>
         <tr class="rule">
-          <td colspan="6" style="text-align:left;"><span class="unit">Tanks &amp; Temples (2 scenes) and Deep Blending (2 scenes), same configuration, no retuning:</span></td>
+          <td colspan="6" class="row-note"><span class="unit">Tanks &amp; Temples (2 scenes) and Deep Blending (2 scenes), same configuration, no retuning:</span></td>
         </tr>
         <tr class="ours">
           <td>SAD (ours) &mdash; T&amp;T</td>
@@ -221,48 +233,48 @@
   <div class="compare-stack grid">
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
-        <img src="static/images/comparisons/flowers_sad.jpg" alt="SAD render, flowers test view, petal and grass crop" width="880" height="700" loading="lazy" decoding="async">
-        <img src="static/images/comparisons/flowers_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+        <picture><source type="image/avif" srcset="static/images/comparisons/flowers_sad.avif"><img src="static/images/comparisons/flowers_sad.jpg" alt="SAD render, flowers test view, petal and grass crop" width="880" height="700" loading="lazy" decoding="async"></picture>
+        <picture><source type="image/avif" srcset="static/images/comparisons/flowers_3dgs.avif"><img src="static/images/comparisons/flowers_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
       <figcaption class="caption"><em>flowers</em> (360), petals and grass &mdash; SAD 3.40M vs 3DGS 2.75M
         Gaussians, +0.29&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
-        <img src="static/images/comparisons/bicycle_sad.jpg" alt="SAD render, bicycle test view, front wheel and grass crop" width="880" height="700" loading="lazy" decoding="async">
-        <img src="static/images/comparisons/bicycle_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+        <picture><source type="image/avif" srcset="static/images/comparisons/bicycle_sad.avif"><img src="static/images/comparisons/bicycle_sad.jpg" alt="SAD render, bicycle test view, front wheel and grass crop" width="880" height="700" loading="lazy" decoding="async"></picture>
+        <picture><source type="image/avif" srcset="static/images/comparisons/bicycle_3dgs.avif"><img src="static/images/comparisons/bicycle_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
       <figcaption class="caption"><em>bicycle</em> (360), front wheel and grass &mdash; 64% of the count,
         +0.06&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
-        <img src="static/images/comparisons/garden_sad.jpg" alt="SAD render, garden test view, bark and foliage crop" width="880" height="700" loading="lazy" decoding="async">
-        <img src="static/images/comparisons/garden_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+        <picture><source type="image/avif" srcset="static/images/comparisons/garden_sad.avif"><img src="static/images/comparisons/garden_sad.jpg" alt="SAD render, garden test view, bark and foliage crop" width="880" height="700" loading="lazy" decoding="async"></picture>
+        <picture><source type="image/avif" srcset="static/images/comparisons/garden_3dgs.avif"><img src="static/images/comparisons/garden_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
       <figcaption class="caption"><em>garden</em> (360), bark and wood grain &mdash; 75% of the count,
         &minus;0.12&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
-        <img src="static/images/comparisons/stump_sad.jpg" alt="SAD render, stump test view, ivy crop" width="880" height="700" loading="lazy" decoding="async">
-        <img src="static/images/comparisons/stump_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+        <picture><source type="image/avif" srcset="static/images/comparisons/stump_sad.avif"><img src="static/images/comparisons/stump_sad.jpg" alt="SAD render, stump test view, ivy crop" width="880" height="700" loading="lazy" decoding="async"></picture>
+        <picture><source type="image/avif" srcset="static/images/comparisons/stump_3dgs.avif"><img src="static/images/comparisons/stump_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
       <figcaption class="caption"><em>stump</em> (360), ivy and twigs &mdash; 69% of the count,
         +0.47&nbsp;dB PSNR.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
-        <img src="static/images/comparisons/truck_sad.jpg" alt="SAD render, truck test view crop" width="880" height="700" loading="lazy" decoding="async">
-        <img src="static/images/comparisons/truck_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async">
+        <picture><source type="image/avif" srcset="static/images/comparisons/truck_sad.avif"><img src="static/images/comparisons/truck_sad.jpg" alt="SAD render, truck test view crop" width="880" height="700" loading="lazy" decoding="async"></picture>
+        <picture><source type="image/avif" srcset="static/images/comparisons/truck_3dgs.avif"><img src="static/images/comparisons/truck_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
       <figcaption class="caption"><em>truck</em> (Tanks&nbsp;&amp;&nbsp;Temples) &mdash; SAD 1.72M vs 3DGS 2.06M
         Gaussians (83%), same configuration, no retuning.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
-        <img src="static/images/comparisons/drjohnson_sad.jpg" alt="SAD render, Dr Johnson test view crop" width="1520" height="1200" loading="lazy" decoding="async">
-        <img src="static/images/comparisons/drjohnson_3dgs.jpg" alt="3DGS render, same crop" width="1520" height="1200" loading="lazy" decoding="async">
+        <picture><source type="image/avif" srcset="static/images/comparisons/drjohnson_sad.avif"><img src="static/images/comparisons/drjohnson_sad.jpg" alt="SAD render, Dr Johnson test view crop" width="1520" height="1200" loading="lazy" decoding="async"></picture>
+        <picture><source type="image/avif" srcset="static/images/comparisons/drjohnson_3dgs.avif"><img src="static/images/comparisons/drjohnson_3dgs.jpg" alt="3DGS render, same crop" width="1520" height="1200" loading="lazy" decoding="async"></picture>
       </div>
       <figcaption class="caption"><em>drjohnson</em> (Deep Blending) &mdash; SAD holds the scene with 1.01M vs
         3DGS 3.12M Gaussians (32%), trading some sharpness; no retuning.</figcaption>
@@ -271,8 +283,8 @@
 
   <h3>Where the Gaussians go</h3>
   <div class="figure-block">
-    <img src="static/images/results/density_map.png"
-         alt="Projected primitive density of 3DGS, SAD, MCMC and FDS-GS on a flowers held-out view" width="2049" height="887" loading="lazy" decoding="async">
+    <picture><source type="image/avif" srcset="static/images/results/density_map.avif"><img src="static/images/results/density_map.png"
+         alt="Projected primitive density of 3DGS, SAD, MCMC and FDS-GS on a flowers held-out view" width="2049" height="887" loading="lazy" decoding="async"></picture>
   </div>
   <p class="caption">Projected density of the converged primitives on a <em>flowers</em> held-out view. SAD shifts its
      budget into the high-frequency flower bed and thins the smooth lawn and background; the relative maps (bottom)
@@ -297,8 +309,10 @@
       <div class="ba-compare fa-compare" data-label-a="SAD (ours)" data-label-b="3DGS" data-rate="0.6"
            data-poster="static/images/posters/flowers.jpg">
         <video muted loop playsinline preload="none" poster="static/images/posters/flowers.jpg"
+               aria-label="SAD (ours) fly-through, flowers scene"
                data-critical data-src="static/videos/flythrough_sad_flowers.mp4"></video>
         <video muted loop playsinline preload="none" poster="static/images/posters/flowers.jpg"
+               aria-label="3DGS fly-through, flowers scene"
                data-critical data-src="static/videos/flythrough_3dgs_flowers.mp4"></video>
         <div class="fa-drop left" data-side="a"><span>replace <b class="fa-drop-name"></b></span></div>
         <div class="fa-drop right" data-side="b"><span>replace <b class="fa-drop-name"></b></span></div>
@@ -328,11 +342,11 @@
     </div>
     <div class="pe-pair">
       <div class="pe-frame">
-        <video muted playsinline preload="none" data-role="sad"></video>
+        <video muted playsinline preload="none" data-role="sad" aria-label="SAD training progress render"></video>
         <span class="pe-tag sad">SAD (ours)</span>
       </div>
       <div class="pe-frame">
-        <video muted playsinline preload="none" data-role="gs"></video>
+        <video muted playsinline preload="none" data-role="gs" aria-label="3DGS training progress render"></video>
         <span class="pe-tag">3DGS</span>
       </div>
     </div>
@@ -347,7 +361,7 @@
 
   <h3>Quality against model size</h3>
   <div class="figure-block">
-    <img src="static/images/results/pareto.png" alt="Pareto plot of PSNR against Gaussian count for SAD, 3DGS and related methods" width="1255" height="576" loading="lazy" decoding="async">
+    <picture><source type="image/avif" srcset="static/images/results/pareto.avif"><img src="static/images/results/pareto.png" alt="Pareto plot of PSNR against Gaussian count for SAD, 3DGS and related methods" width="1255" height="576" loading="lazy" decoding="async"></picture>
   </div>
   <p class="caption">PSNR and LPIPS against primitive count, nine-scene Mip-NeRF&nbsp;360 averages, all methods under
      our pipeline. SAD sits left of its 3DGS baseline at near-identical PSNR and better LPIPS; MCMC and FDS-GS reach
@@ -373,8 +387,11 @@
   <div class="container">
     <p>This page is adapted from the <a href="https://nerfies.github.io">Nerfies</a> project page
        (<a href="https://github.com/nerfies/nerfies.github.io">source</a>), licensed under a
-       <a href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0
+       <a href="https://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0
        International License</a>, and reuses its layout with self-contained CSS and JavaScript.</p>
+    <p class="footer-a11y">Accessibility: this page targets WCAG&nbsp;2.2&nbsp;AA &mdash; keyboard operation,
+       screen-reader labels, reduced-motion and high-contrast support. Found a barrier?
+       <a href="https://github.com/KerscherNik/master-thesis-website/issues">Open an issue</a>.</p>
     <p>Renders use the <a href="https://jonbarron.info/mipnerf360/">Mip-NeRF&nbsp;360</a> scenes and build on the
        <a href="https://github.com/graphdeco-inria/gaussian-splatting">3D Gaussian Splatting</a> codebase (Inria,
        GRAPHDECO).</p>

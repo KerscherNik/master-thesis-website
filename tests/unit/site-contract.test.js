@@ -50,6 +50,44 @@ describe("progress explorer contract", () => {
   });
 });
 
+describe("security & privacy contract", () => {
+  it("ships a CSP meta tag with the required directives", () => {
+    const m = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
+    expect(m).not.toBeNull();
+    for (const d of ["default-src 'none'", "script-src 'self'", "media-src 'self' blob:",
+                     "worker-src 'self'", "manifest-src 'self'", "base-uri 'self'"]) {
+      expect(m[1]).toContain(d);
+    }
+  });
+
+  it("robots.txt allows crawling so the noindex meta can be honored", () => {
+    const robots = readFileSync(resolve(ROOT, "robots.txt"), "utf8");
+    expect(robots).not.toMatch(/Disallow:\s*\/\s*$/m);
+    expect(html).toContain('name="robots" content="noindex');
+  });
+
+  it("uses no-referrer and no insecure http:// links", () => {
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
+    expect(html).not.toMatch(/href="http:\/\//);
+  });
+
+  it("workflow actions are SHA-pinned with least-privilege permissions", () => {
+    const ci = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/^permissions:\n  contents: read/m);
+    const uses = [...ci.matchAll(/uses: ([^\s]+)/g)].map(m => m[1]);
+    for (const u of uses) expect(u).toMatch(/@[0-9a-f]{40}$/);
+  });
+});
+
+describe("image variants", () => {
+  it("every picture-wrapped image has its AVIF twin on disk", () => {
+    const avifs = [...html.matchAll(/srcset="(static\/images\/[^"]+\.avif)"/g)].map(m => m[1]);
+    expect(avifs.length).toBeGreaterThan(15);
+    const missing = avifs.filter(a => !existsSync(resolve(ROOT, a)));
+    expect(missing).toEqual([]);
+  });
+});
+
 describe("codec variants", () => {
   it("every H.264 video has an AV1 twin of plausible size", () => {
     const { readdirSync, statSync } = require("node:fs");
