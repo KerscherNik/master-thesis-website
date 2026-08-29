@@ -1012,11 +1012,14 @@
       });
       function tileFetch() {
         /* a pending on-demand load (scene switch, swap) owns the network;
-           the bench follows once the ring is served */
+           the bench follows once the ring is served — and holds the gate
+           itself so the background chains don't race the visible tiles */
         if (demandBusy()) { setTimeout(tileFetch, 300); return; }
+        demandUp();
         fetchToBlob(core.flyPath(scene, m)).then(function (url) {
+          demandDown();
           attachSrc(tv, url);
-        }).catch(function () { markTileUnavailable(); });
+        }).catch(function () { demandDown(); markTileUnavailable(); });
       }
       whenRevealed(tileFetch);
 

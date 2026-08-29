@@ -327,10 +327,12 @@ test("scene switch: ring files load before the bench refetches", async ({ page }
 
   relSad(); relGs();
   await expect(page.locator(".fa-compare")).not.toHaveClass(/fa-loading/, { timeout: 20000 });
-  // with the ring served, the bench follows
-  await expect.poll(() => reqs.some(f => f.includes("_mcmc_"))
-    && reqs.some(f => f.includes("_fdsgs_")), { timeout: 10000 }).toBe(true);
-  relM(); relF();
+  // with the ring served, the bench follows — one tile at a time, since each
+  // fetch holds the demand gate so the background chains cannot race it
+  await expect.poll(() => reqs.some(f => f.includes("_mcmc_")), { timeout: 10000 }).toBe(true);
+  relM();
+  await expect.poll(() => reqs.some(f => f.includes("_fdsgs_")), { timeout: 10000 }).toBe(true);
+  relF();
   await expect(page.locator('.fa-tile[data-method="mcmc"]')).toHaveClass(/loaded/, { timeout: 20000 });
   await expect(page.locator('.fa-tile[data-method="fds"], .fa-tile[data-method="fdsgs"]').first())
     .toHaveClass(/loaded/, { timeout: 20000 });
