@@ -101,6 +101,33 @@ def best_view(scene: str) -> str:
     return best_v
 
 
+def best_visible(scene: str, w: int = 440, h: int = 350, stride: int = 40):
+    """Pick view AND box maximising the *visible* difference between the two
+    renders (mean |SAD - 3DGS| on luma), constrained to windows where SAD is
+    also better against GT (mean err-gap > 0). The plain err-gap criterion
+    favours flat blurry regions where nothing is visibly different."""
+    import numpy as np
+    views = sorted(q.stem for q in (SAD[scene] / "test/ours_30000/renders").glob("*.png"))
+    best, best_pick = -1e9, None
+    for v in views:
+        gt = luma(SAD[scene] / f"test/ours_30000/gt/{v}.png")
+        sad = luma(SAD[scene] / f"test/ours_30000/renders/{v}.png")
+        gs = luma(GS[scene] / f"test/ours_30000/renders/{v}.png")
+        vis = np.abs(gs - sad)
+        gap = np.abs(gs - gt) - np.abs(sad - gt)
+        H, W = vis.shape
+        for y in range(0, H - h + 1, stride):
+            for x in range(0, W - w + 1, stride):
+                if gap[y:y + h, x:x + w].mean() <= 0:
+                    continue  # only show SAD-favourable regions
+                sc = float(vis[y:y + h, x:x + w].mean())
+                if sc > best:
+                    best, best_pick = sc, (v, (x, y, w, h))
+    v, box = best_pick
+    print(f"  {scene}: view {v} box {box} (visible |SAD-3DGS| {best:.2f} grey levels, SAD-favourable)")
+    return v, box
+
+
 def best_box(scene: str, w: int = 440, h: int = 350, stride: int = 40) -> tuple[int, int, int, int]:
     import numpy as np
     v = CROP_VIEW.get(scene, VIEW[scene])
@@ -142,9 +169,13 @@ def main() -> None:
         jpg(GS[scene] / f"test/ours_30000/renders/{v}.png", WEB / "teaser" / f"{scene}_3dgs.jpg")
 
     # Result sliders: 2x-upscaled detail crops where the methods differ.
+    # T&T/DB scenes: pick view+box by maximum *visible* SAD-vs-3DGS difference
+    # (the err-gap criterion landed on flat, blurry regions there).
     for scene in ("truck", "drjohnson"):
-        if scene not in VIEW:
-            VIEW[scene] = best_view(scene)
+        v, box = best_visible(scene)
+        VIEW[scene] = v
+        CROP_VIEW[scene] = v
+        CROP_BOX[scene] = box
     for scene in ("flowers", "bicycle", "garden", "stump", "truck", "drjohnson"):
         crop_pair(scene)
 

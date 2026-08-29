@@ -36,6 +36,11 @@
   };
   var FLY_SCENES = ["flowers", "bicycle", "garden", "stump", "truck", "drjohnson"];
 
+  /* AV1 twins live under static/videos/av1/ with identical basenames */
+  function av1Path(path) {
+    return path.replace("static/videos/", "static/videos/av1/");
+  }
+
   function flyPath(scene, method) {
     return "static/videos/flythrough_" + FLY_METHODS[method].file + "_" + scene + ".mp4";
   }
@@ -79,6 +84,7 @@
     FLY_METHODS: FLY_METHODS,
     FLY_SCENES: FLY_SCENES,
     flyPath: flyPath,
+    av1Path: av1Path,
     benchedMethods: benchedMethods,
     clamp: clamp,
     checkpointTime: checkpointTime,

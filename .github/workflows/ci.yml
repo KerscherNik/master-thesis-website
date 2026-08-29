@@ -68,6 +68,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html robots.txt _site/
+          sed "s/__BUILD__/${GITHUB_SHA}/" sw.js > _site/sw.js
           cp -r static _site/static
 
       - uses: actions/configure-pages@v6

@@ -38,6 +38,17 @@ indistinguishable — the differences live in high-frequency detail. FDS-GS rend
 (its plys carry a per-Gaussian filter radius `R` that only its own
 rasterizer handles; see `asset_scripts/slurm/web-flythrough-fds-retry.sh`).
 
+Every video ships in two codecs: the H.264 originals and AV1 twins under
+`static/videos/av1/` (SVT-AV1, ~45% smaller, SSIM-gated at >= 0.97 against
+the originals — garden runs at CRF 26, the rest at CRF 30; see
+`asset_scripts/slurm/web-av1-encode.sh`). The page picks AV1 when the
+browser decodes it and falls back per file otherwise. A service worker
+(`sw.js`, cache name versioned by the deploy SHA) makes repeat visits
+instant and offline-capable. Local serving must support HTTP Range
+requests like GitHub Pages does — use `npm run serve`
+(`tests/server.py`), not `python -m http.server`, or videos never become
+seekable once Chromium suspends their download.
+
 ## Tests
 
 ```bash

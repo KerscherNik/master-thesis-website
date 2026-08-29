@@ -70,6 +70,40 @@ test("bench tile loads and its preview opens a lightbox with controls", async ({
   await expect(lb).not.toHaveClass(/open/);
 });
 
+test("play/pause button freezes the pair and holds against the watchdog", async ({ page }) => {
+  const pair = videoPair(page);
+  await pair.scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => {
+    const el = [...document.querySelectorAll(".ba-compare")].find(e => e.querySelector("video"));
+    return !el.querySelector("video").paused;
+  }), { timeout: 15000 }).toBe(true);
+
+  await pair.locator(".ba-playpause").click();
+  const t1 = await page.evaluate(() => {
+    const el = [...document.querySelectorAll(".ba-compare")].find(e => e.querySelector("video"));
+    const [a, b] = el.querySelectorAll("video");
+    return { paused: [a.paused, b.paused], t: a.currentTime };
+  });
+  expect(t1.paused).toEqual([true, true]);
+
+  // the 1.5s watchdog must NOT override an explicit pause
+  await page.waitForTimeout(2500);
+  const t2 = await page.evaluate(() => {
+    const el = [...document.querySelectorAll(".ba-compare")].find(e => e.querySelector("video"));
+    const [a, b] = el.querySelectorAll("video");
+    return { paused: [a.paused, b.paused], t: a.currentTime };
+  });
+  expect(t2.paused).toEqual([true, true]);
+  expect(t2.t).toBeCloseTo(t1.t, 1); // frozen frame
+
+  await pair.locator(".ba-playpause").click();
+  await expect.poll(() => page.evaluate(() => {
+    const el = [...document.querySelectorAll(".ba-compare")].find(e => e.querySelector("video"));
+    const [a, b] = el.querySelectorAll("video");
+    return !a.paused && !b.paused;
+  }), { timeout: 10000 }).toBe(true);
+});
+
 test("expanding the pair opens a synced comparison lightbox", async ({ page }) => {
   const pair = videoPair(page);
   await pair.scrollIntoViewIfNeeded();

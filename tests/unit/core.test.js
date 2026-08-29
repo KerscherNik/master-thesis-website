@@ -88,6 +88,13 @@ describe("tickFraction", () => {
   });
 });
 
+describe("av1Path", () => {
+  it("maps a video path to its AV1 twin", () => {
+    expect(core.av1Path("static/videos/flythrough_sad_flowers.mp4"))
+      .toBe("static/videos/av1/flythrough_sad_flowers.mp4");
+  });
+});
+
 describe("fly-through arena data", () => {
   it("knows the methods and scenes of the arena", () => {
     expect(Object.keys(core.FLY_METHODS)).toContain("sad");

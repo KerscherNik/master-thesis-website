@@ -50,6 +50,24 @@ describe("progress explorer contract", () => {
   });
 });
 
+describe("codec variants", () => {
+  it("every H.264 video has an AV1 twin of plausible size", () => {
+    const { readdirSync, statSync } = require("node:fs");
+    const dir = resolve(ROOT, "static/videos");
+    const mp4s = readdirSync(dir).filter(f => f.endsWith(".mp4"));
+    expect(mp4s.length).toBeGreaterThan(20);
+    const missing = [], suspicious = [];
+    for (const f of mp4s) {
+      const twin = resolve(dir, "av1", f);
+      if (!existsSync(twin)) { missing.push(f); continue; }
+      const ratio = statSync(twin).size / statSync(resolve(dir, f)).size;
+      if (ratio <= 0.1 || ratio >= 1.1) suspicious.push(`${f} ratio ${ratio.toFixed(2)}`);
+    }
+    expect(missing).toEqual([]);
+    expect(suspicious).toEqual([]);
+  });
+});
+
 describe("fly-through arena contract", () => {
   it("all 9 method x scene fly-through videos exist on disk", () => {
     const missing = [];

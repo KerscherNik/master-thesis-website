@@ -30,8 +30,17 @@
 
   var isFile = location.protocol === "file:";
   var blobs = {}; /* path -> object URL, once fully fetched */
+
+  /* AV1 twins are ~50% smaller at the same visual quality; fall back to the
+     H.264 originals wherever AV1 decode is unavailable (older Safari) */
+  var AV1 = false;
+  try {
+    AV1 = typeof MediaSource !== "undefined" &&
+      MediaSource.isTypeSupported('video/mp4; codecs="av01.0.08M.08"');
+  } catch (e) { /* keep H.264 */ }
+  function netPath(p) { return AV1 ? core.av1Path(p) : p; }
   var openLightbox, closeLightbox;
-  function src(path) { return blobs[path] || path; }
+  function src(path) { return blobs[path] || netPath(path); }
 
   /* Attach a source and force the fetch/decode to start. Elements shipped
      with preload="none" can otherwise suspend at HAVE_METADATA and never
@@ -49,13 +58,20 @@
   function fetchToBlob(path, onBytes, onTotal) {
     if (blobs[path]) return Promise.resolve(blobs[path]);
     if (inflight[path]) return inflight[path];
-    var p = doFetchToBlob(path, onBytes, onTotal).then(function (url) {
-      delete inflight[path];
-      return url;
-    }, function (err) {
-      delete inflight[path];
-      throw err;
-    });
+    var p = doFetchToBlob(netPath(path), onBytes, onTotal)
+      .catch(function (err) {
+        /* AV1 twin missing or failed: retry the H.264 original */
+        if (netPath(path) === path) throw err;
+        return doFetchToBlob(path, onBytes, onTotal);
+      })
+      .then(function (url) {
+        blobs[path] = url;
+        delete inflight[path];
+        return url;
+      }, function (err) {
+        delete inflight[path];
+        throw err;
+      });
     inflight[path] = p;
     return p;
   }
@@ -78,9 +94,7 @@
       }
       return pump();
     }).then(function (blob) {
-      var url = URL.createObjectURL(blob);
-      blobs[path] = url;
-      return url;
+      return URL.createObjectURL(blob);
     });
   }
 
@@ -104,10 +118,11 @@
 
     var criticalVids = [].slice.call(document.querySelectorAll("video[data-critical]"));
     var lazyVids = [].slice.call(document.querySelectorAll("video[data-src]:not([data-critical])"));
-    /* progress-explorer sources are critical too (small files, drive the UI) */
+    /* progress-explorer videos stream progressively until their background
+       blobs arrive, so only the hero pair blocks the reveal */
     var extraPaths = [];
-    Object.keys(PROGRESS_SCENES).forEach(function (s) {
-      extraPaths.push(PROGRESS_SCENES[s].sad, PROGRESS_SCENES[s].gs);
+    Object.keys(core.PROGRESS_SCENES).forEach(function (s) {
+      extraPaths.push(core.PROGRESS_SCENES[s].sad, core.PROGRESS_SCENES[s].gs);
     });
 
     var revealed = false;
@@ -132,7 +147,7 @@
     if (isFile || lite || !window.fetch) {
       /* no loader possible (or not wanted): plain progressive playback */
       criticalVids.concat(lazyVids).forEach(function (v) {
-        attachSrc(v, v.getAttribute("data-src"));
+        attachSrc(v, netPath(v.getAttribute("data-src")));
       });
       reveal();
       criticalReady();
@@ -162,7 +177,7 @@
 
     var tasks = criticalVids.map(function (v) {
       return { v: v, path: v.getAttribute("data-src") };
-    }).concat(extraPaths.map(function (p) { return { v: null, path: p }; }));
+    });
 
     var pending = tasks.length;
     function settle() {
@@ -183,15 +198,19 @@
     });
     if (!tasks.length) { reveal(); criticalReady(); nextLazy(); }
 
-    /* fly-through grid: fetched sequentially in the background */
-    var queue = lazyVids.slice();
+    /* background: progress-explorer videos first (small, drive a whole
+       section), then any remaining data-src videos */
+    var queue = extraPaths.map(function (p) { return { v: null, path: p }; })
+      .concat(lazyVids.map(function (v) { return { v: v, path: v.getAttribute("data-src") }; }));
     function nextLazy() {
       if (!queue.length) return;
-      var v = queue.shift();
-      var path = v.getAttribute("data-src");
-      fetchToBlob(path)
-        .then(function (url) { attachSrc(v, url); })
-        .catch(function () { markFailed(v); })
+      var t = queue.shift();
+      fetchToBlob(t.path)
+        .then(function (url) {
+          if (t.v) attachSrc(t.v, url);
+          else document.dispatchEvent(new CustomEvent("blob-ready", { detail: t.path }));
+        })
+        .catch(function () { if (t.v) markFailed(t.v); })
         .then(nextLazy);
     }
 
@@ -213,6 +232,7 @@
       if (rate) { v.defaultPlaybackRate = rate; v.playbackRate = rate; }
     });
     var active = false, rafOn = false;
+    var userPaused = false; /* explicit pause via the button wins over all auto-play */
     function tick() {
       if (active && !b.paused && a.readyState >= 2 &&
           Math.abs(a.currentTime - b.currentTime) > 0.08) {
@@ -221,7 +241,7 @@
       requestAnimationFrame(tick);
     }
     function start() {
-      if (!active || a.readyState < 2 || b.readyState < 2) return;
+      if (!active || userPaused || a.readyState < 2 || b.readyState < 2) return;
       /* only seek on real drift: an unconditional seek fires "waiting",
          which pauses the partner, whose "canplay" would re-enter start()
          and seek again — an infinite loop that freezes the pair */
@@ -245,14 +265,22 @@
        paused while both are decodable (missed event, rejected play(),
        hot-reload races), re-enter start() — it re-syncs and resumes. */
     setInterval(function () {
-      if (active && a.readyState >= 2 && b.readyState >= 2 &&
+      if (active && !userPaused && a.readyState >= 2 && b.readyState >= 2 &&
           (a.paused || b.paused)) {
         start();
       }
     }, 1500);
     return {
       resume: function () { active = true; start(); },
-      pause: function () { active = false; a.pause(); b.pause(); }
+      pause: function () { active = false; a.pause(); b.pause(); },
+      /* user-facing play/pause; returns true when now playing */
+      toggle: function () {
+        userPaused = !userPaused;
+        if (userPaused) { a.pause(); b.pause(); } else { start(); }
+        return !userPaused;
+      },
+      play: function () { userPaused = false; start(); },
+      isUserPaused: function () { return userPaused; }
     };
   }
 
@@ -368,6 +396,22 @@
       });
       root._pair = pairSync(a, b, rate);
       if (opts.autoplay) root._pair.resume();
+
+      /* freeze the comparison at any moment */
+      var pp = document.createElement("button");
+      pp.type = "button";
+      pp.className = "ba-playpause";
+      pp.innerHTML = PAUSE;
+      pp.setAttribute("aria-label", "Pause the fly-through");
+      pp.addEventListener("pointerdown", function (ev) { ev.stopPropagation(); });
+      pp.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var playing = root._pair.toggle();
+        pp.innerHTML = playing ? PAUSE : PLAY;
+        pp.setAttribute("aria-label", playing ? "Pause the fly-through" : "Resume the fly-through");
+      });
+      root.appendChild(pp);
+      root._ppBtn = pp;
     }
 
     if (!opts.noExpand) {
@@ -716,9 +760,18 @@
       benched().forEach(function (m) { benchEl.appendChild(makeTile(m)); });
     }
 
+    function resetPlayback() {
+      if (cmp._pair) cmp._pair.play();
+      if (cmp._ppBtn) {
+        cmp._ppBtn.innerHTML = PAUSE;
+        cmp._ppBtn.setAttribute("aria-label", "Pause the fly-through");
+      }
+    }
+
     function swap(side, m) {
       if (!m || m === left || m === right) return;
       if (side === "a") left = m; else right = m;
+      resetPlayback();
       syncTexts();
       attachSide(side === "a" ? vA : vB, core.flyPath(scene, m));
       buildBench();
@@ -727,6 +780,7 @@
     function setScene(s) {
       if (s === scene) return;
       scene = s;
+      resetPlayback();
       tabs.forEach(function (b) {
         var on = b.getAttribute("data-fly-scene") === s;
         b.classList.toggle("active", on);
@@ -882,9 +936,29 @@
     });
 
     document.addEventListener("critical-assets", function () { loadScene(scene); }, { once: true });
+
+    /* progressive src -> blob upgrade once the background fetch lands:
+       keeps the shown frame, makes scrubbing instant */
+    document.addEventListener("blob-ready", function (ev) {
+      [[vSad, PROGRESS_SCENES[scene].sad], [vGs, PROGRESS_SCENES[scene].gs]].forEach(function (pair) {
+        var v = pair[0];
+        if (ev.detail !== pair[1] || v.src.indexOf("blob:") === 0) return;
+        var t = v.currentTime;
+        v.addEventListener("loadeddata", function once() {
+          v.removeEventListener("loadeddata", once);
+          try { v.currentTime = t; } catch (e) { /* keep frame 0 */ }
+        });
+        attachSrc(v, src(pair[1]));
+      });
+    });
   }
 
   /* ---------- boot ---------- */
+
+  /* offline-capable repeat visits: cache-first for static assets */
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js").catch(function () { /* optional */ });
+  }
 
   document.addEventListener("DOMContentLoaded", function () {
     initLightbox();
