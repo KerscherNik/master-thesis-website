@@ -39,12 +39,45 @@
      H.264 originals wherever AV1 decode is unavailable (older Safari) */
   var AV1 = false;
   try {
-    AV1 = typeof MediaSource !== "undefined" &&
-      MediaSource.isTypeSupported('video/mp4; codecs="av01.0.08M.08"');
+    /* canPlayType matches how we actually play (blob in a <video>);
+       MSE support can differ from element playback support in Safari */
+    AV1 = document.createElement("video")
+      .canPlayType('video/mp4; codecs="av01.0.08M.08"') !== "";
   } catch (e) { /* keep H.264 */ }
   function netPath(p) { return AV1 ? core.av1Path(p) : p; }
+  /* runtime canary: if an AV1 blob errors in the element, drop AV1 for the
+     whole session and refetch that file as H.264 */
+  var blobCodec = {}; /* path -> "av1" | "h264" */
+  function revokeAV1(path) {
+    if (blobCodec[path] !== "av1") return false;
+    AV1 = false;
+    delete blobs[path];
+    delete blobCodec[path];
+    return true;
+  }
   var openLightbox, closeLightbox;
   function src(path) { return blobs[path] || netPath(path); }
+
+  /* Seek that survives Safari: an early currentTime write on a just-loaded
+     video can silently clamp to 0; assert the target and re-apply on the
+     readiness events until it sticks. */
+  function ensureSeek(v, t) {
+    var tries = 0;
+    function attempt() {
+      if (v.readyState >= 1) { try { v.currentTime = t; } catch (e) { /* retry below */ } }
+      if (Math.abs(v.currentTime - t) < 0.2 || tries >= 4) {
+        ["loadeddata", "canplay", "canplaythrough"].forEach(function (ev) {
+          v.removeEventListener(ev, attempt);
+        });
+        return;
+      }
+      tries += 1;
+    }
+    ["loadeddata", "canplay", "canplaythrough"].forEach(function (ev) {
+      v.addEventListener(ev, attempt);
+    });
+    attempt();
+  }
 
   /* Attach a source and force the fetch/decode to start. Elements shipped
      with preload="none" can otherwise suspend at HAVE_METADATA and never
@@ -87,6 +120,7 @@
       })
       .then(function (url) {
         blobs[path] = url;
+        blobCodec[path] = AV1 ? "av1" : "h264";
         delete inflight[path];
         return url;
       }, function (err) {
@@ -423,25 +457,22 @@
     });
 
     if (isVideo) {
-      var failed = false;
-      function onFail() {
-        if (failed) return;
-        failed = true;
-        root.classList.add("pending");
-        var poster = root.getAttribute("data-poster");
-        var slot = document.createElement("div");
-        slot.className = "video-slot";
-        slot.innerHTML =
-          (poster ? '<img class="poster" src="' + poster + '" alt="">' : "") +
-          '<div class="pending-badge"><span class="tag">unavailable</span>' +
-          "<span>Fly-through pair not rendered yet</span></div>";
-        root.innerHTML = ""; /* also removes the handle and its slider role */
-        root.appendChild(slot);
-        root.style.cursor = "default";
-      }
+      /* a media error must never destroy the widget: revoke AV1 if that
+         blob was AV1 (Safari can accept the codec probe yet fail to
+         decode), refetch as H.264, and reattach - once per element */
       [a, b].forEach(function (v) {
-        v.addEventListener("error", onFail);
-        if (v.error) onFail();
+        v._recovered = 0;
+        v.addEventListener("error", function () {
+          if (v._recovered >= 2) return;
+          v._recovered += 1;
+          var path = root._compare && root._compare.srcs[v === a ? 0 : 1];
+          if (!path) return;
+          revokeAV1(path);
+          delete blobs[path];
+          fetchToBlob(path).then(function (url) {
+            attachSrc(v, url);
+          }).catch(function () { /* leave the poster/last frame */ });
+        });
       });
       root._pair = pairSync(a, b, rate);
       if (opts.autoplay) root._pair.resume();
@@ -740,16 +771,22 @@
         v.style.opacity = "";
         pendingSides = Math.max(0, pendingSides - 1);
         if (!pendingSides) cmp.classList.remove("fa-loading");
-        if (isPaused() && pausedAlignT != null) {
-          try { v.currentTime = pausedAlignT; } catch (e) { /* keep frame 0 */ }
-        }
+        if (isPaused() && pausedAlignT != null) ensureSeek(v, pausedAlignT);
       });
       fetchToBlob(path).then(function (url) {
         attachSrc(v, url);
       }).catch(function () {
-        v.style.opacity = "";
-        pendingSides = Math.max(0, pendingSides - 1);
-        if (!pendingSides) cmp.classList.remove("fa-loading");
+        /* transient (SW killed, network blip): one retry, then give up
+           quietly - the previous frame stays, nothing is destroyed */
+        setTimeout(function () {
+          fetchToBlob(path).then(function (url) {
+            attachSrc(v, url);
+          }).catch(function () {
+            v.style.opacity = "";
+            pendingSides = Math.max(0, pendingSides - 1);
+            if (!pendingSides) cmp.classList.remove("fa-loading");
+          });
+        }, 1200);
       });
     }
 
@@ -777,7 +814,7 @@
           tv.removeEventListener("loadeddata", done);
           tile.classList.add("loaded");
           if (isPaused()) {
-            try { tv.currentTime = ringTime(); } catch (e) { /* keep frame 0 */ }
+            ensureSeek(tv, ringTime());
           } else if (benchEl._visible !== false) {
             tv.play().catch(function () {});
           }
@@ -834,7 +871,7 @@
       benchEl.querySelectorAll("video").forEach(function (v) {
         if (paused) {
           v.pause();
-          if (v.readyState >= 1) { try { v.currentTime = t; } catch (e) { /* keep frame */ } }
+          ensureSeek(v, t);
         } else if (benchEl._visible !== false) {
           v.play().catch(function () {});
         }
@@ -1028,11 +1065,8 @@
         var v = pair[0];
         if (ev.detail !== pair[1] || v.src.indexOf("blob:") === 0) return;
         var t = v.currentTime;
-        v.addEventListener("loadeddata", function once() {
-          v.removeEventListener("loadeddata", once);
-          try { v.currentTime = t; } catch (e) { /* keep frame 0 */ }
-        });
         attachSrc(v, src(pair[1]));
+        ensureSeek(v, t);
       });
     });
   }

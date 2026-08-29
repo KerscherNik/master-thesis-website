@@ -40,19 +40,25 @@ self.addEventListener("fetch", function (e) {
     return;
   }
 
-  if (url.pathname.indexOf("/static/") !== -1) {
+  /* Videos are deliberately NOT intercepted: the page streams them into
+     blob URLs itself and Safari kills service workers aggressively - a SW
+     dying mid-video-download produced corrupted playback. Small assets
+     (HTML/CSS/JS/images) are cache-first. */
+  if (url.pathname.indexOf("/static/videos/") !== -1) return;
+
+  if (url.pathname.indexOf("/static/") !== -1 ||
+      url.pathname.endsWith("manifest.webmanifest")) {
     e.respondWith(
       caches.match(req).then(function (hit) {
         if (hit) return hit;
         return fetch(req).then(function (res) {
           if (res.ok) {
             var copy = res.clone();
-            /* videos are large: ignore quota errors, the network still works */
             caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
           }
           return res;
         });
-      })
+      }).catch(function () { return fetch(req); })
     );
   }
 });

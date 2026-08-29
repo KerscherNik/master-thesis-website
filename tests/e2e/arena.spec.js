@@ -136,3 +136,95 @@ test("swaps compose: every method can reach the ring", async ({ page }) => {
   await expect(page.locator(".fa-compare .ba-label.b")).toHaveText("3DGS-MCMC");
   await expect(page.locator('.fa-tile[data-method="sad"] .fa-tile-name')).toHaveText("SAD (ours)");
 });
+
+test("a failing video fetch during swap degrades gracefully, arena survives", async ({ page }) => {
+  await pageReady(page);
+  await page.locator(ARENA).scrollIntoViewIfNeeded();
+  await expect.poll(() => pairPlaying(page), { timeout: 60000 }).toBe(true);
+
+  // kill both codec variants of the incoming method mid-session
+  await page.route("**/flythrough_mcmc_flowers.mp4", r => r.abort());
+  await page.route("**/av1/flythrough_mcmc_flowers.mp4", r => r.abort());
+  await page.evaluate(() => { /* forget any prefetched copy */
+    const el = document.querySelector(".fa-compare");
+    el._compare.srcs; /* touch */
+  });
+  await page.locator('.fa-tile[data-method="mcmc"] .fa-swap[data-side="b"]').click();
+  await page.waitForTimeout(4000); // includes the one auto-retry
+
+  const state = await page.evaluate(() => {
+    const el = document.querySelector(".fa-compare");
+    const [a] = el.querySelectorAll("video");
+    return {
+      arenaAlive: !!el.querySelector(".ba-handle") && el.querySelectorAll("video").length === 2,
+      labelB: el.querySelector(".ba-label.b").textContent,
+      leftStillPlays: !a.paused
+    };
+  });
+  expect(state.arenaAlive).toBe(true);      // never wiped
+  expect(state.labelB).toBe("3DGS-MCMC");   // UI state consistent
+  expect(state.leftStillPlays).toBe(true);  // healthy side unaffected
+});
+
+/* Real HTML5 drag-and-drop through actual mouse input (Chromium performs
+   native DnD for draggable elements on mouse gestures), as opposed to the
+   synthetic-event test above which only exercises the handler wiring. */
+async function realDragTileTo(page, method, sideFraction) {
+  const tile = page.locator(`.fa-tile[data-method="${method}"]`);
+  await tile.scrollIntoViewIfNeeded();
+  const t = await tile.boundingBox();
+  const c = await page.locator(".fa-compare").boundingBox();
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(t.x + t.width / 2 + 12, t.y + t.height / 2 - 12, { steps: 4 });
+  await page.mouse.move(c.x + c.width * sideFraction, c.y + c.height / 2, { steps: 18 });
+  await page.mouse.up();
+}
+
+test("real mouse drag-and-drop swaps the dragged method in", async ({ page }) => {
+  await realDragTileTo(page, "mcmc", 0.75); // right half
+  await expect(page.locator(".fa-compare .ba-label.b")).toHaveText("3DGS-MCMC");
+  await expect(page.locator('.fa-tile[data-method="gs"]')).toHaveCount(1);
+});
+
+test("user repro: pause, drag a method in, play - both sides move from the frozen frame", async ({ page }) => {
+  await expect.poll(() => pairPlaying(page), { timeout: 60000 }).toBe(true);
+  await expect(page.locator('.fa-tile[data-method="fds"]')).toHaveClass(/loaded/, { timeout: 60000 });
+
+  await page.locator(".fa-compare .ba-playpause").click();
+  await expect.poll(() => page.evaluate(() =>
+    [...document.querySelectorAll(".fa-compare video")].every(v => v.paused)),
+    { timeout: 5000 }).toBe(true);
+  const tRef = await page.evaluate(() =>
+    document.querySelectorAll(".fa-compare video")[1].currentTime);
+
+  await realDragTileTo(page, "fds", 0.75);
+  await expect(page.locator(".fa-compare .ba-label.b")).toHaveText("FDS-GS");
+
+  // incoming video lands on the frozen frame, still paused
+  await expect.poll(() => page.evaluate(() => {
+    const [a, b] = document.querySelectorAll(".fa-compare video");
+    return b.readyState >= 2 && a.paused && b.paused;
+  }), { timeout: 60000 }).toBe(true);
+  const aligned = await page.evaluate(() => {
+    const [a, b] = document.querySelectorAll(".fa-compare video");
+    return { tA: a.currentTime, tB: b.currentTime };
+  });
+  expect(Math.abs(aligned.tB - tRef)).toBeLessThan(0.2);
+  expect(Math.abs(aligned.tA - tRef)).toBeLessThan(0.2);
+
+  // play: BOTH sides must advance together (the bug was one frozen side)
+  await page.locator(".fa-compare .ba-playpause").click();
+  await expect.poll(() => page.evaluate(() =>
+    [...document.querySelectorAll(".fa-compare video")].every(v => !v.paused)),
+    { timeout: 20000 }).toBe(true);
+  await page.waitForTimeout(2000);
+  const after = await page.evaluate(() => {
+    const [a, b] = document.querySelectorAll(".fa-compare video");
+    return { tA: a.currentTime, tB: b.currentTime,
+             drift: Math.abs(a.currentTime - b.currentTime) };
+  });
+  expect(after.tA).toBeGreaterThan(tRef + 0.4);
+  expect(after.tB).toBeGreaterThan(tRef + 0.4);
+  expect(after.drift).toBeLessThan(0.25);
+});
