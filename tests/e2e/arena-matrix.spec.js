@@ -199,3 +199,26 @@ test("the footer names the build", async ({ page }) => {
   await pageReady(page);
   await expect(page.locator(".build-tag")).toHaveText(/build (local|[0-9a-f]{7})/);
 });
+
+test("cached scene switch while paused, then play: the press sticks", async ({ page }) => {
+  // the priming micro play-pause resolves late on a cached (instant)
+  // switch; its deferred pause must not swallow a play pressed meanwhile
+  await ready(page);
+  await expect.poll(async () => !(await reelState(page)).paused, { timeout: 15000 }).toBe(true);
+  await page.locator('[data-fly-scene="bicycle"]').click(); // warm the cache
+  await expect(page.locator(CMP)).not.toHaveClass(/fa-loading/, { timeout: 60000 });
+  await page.locator('[data-fly-scene="flowers"]').click(); // cached too (loader)
+  await expect(page.locator(CMP)).not.toHaveClass(/fa-loading/, { timeout: 60000 });
+
+  await page.locator(`${CMP} .ba-playpause`).click(); // pause
+  await page.locator('[data-fly-scene="bicycle"]').click(); // instant, cached
+  await page.waitForTimeout(150); // land inside the prime's resolution window
+  await page.locator(`${CMP} .ba-playpause`).click(); // play
+  await expect.poll(async () => {
+    const st = await reelState(page);
+    return !st.paused && st.rs >= 2;
+  }, { timeout: 5000 }).toBe(true);
+  // and it stays playing - no late pause clobbers it
+  await page.waitForTimeout(1200);
+  expect((await reelState(page)).paused).toBe(false);
+});

@@ -1077,10 +1077,12 @@
       cmp._userPaused = p;
       syncButton();
       if (userPaused) { reel.pause(); paintAll(); }
-      else if (!pendingLoad && reel.readyState >= 2) reel.play().catch(function () {});
-      /* loading or not ready: intent is recorded and the loadeddata
-         handler applies it when the new reel arrives - the stale frame
-         must never start moving behind the veil */
+      else if (!pendingLoad) reel.play().catch(function () {});
+      /* play() legally pends through seeks and low readyState - gating it
+         on readiness silently swallowed presses landing mid-seek. The only
+         real gate is a pending load: the stale frame must never start
+         moving behind the veil, so that intent is applied by the
+         loadeddata handler when the new reel arrives */
     }
     syncButton();
     if (REDUCED.addEventListener) {
@@ -1288,10 +1290,16 @@
         reel.play().catch(function () { paintSoon(); });
         paintSoon();
       } else {
+        /* prime the decoder with a muted micro play; when the promise
+           resolves, re-check the CURRENT intent - the user may have
+           pressed play meanwhile, and a stale pause() here would swallow
+           that press (found by the production sweep) */
         var pr = reel.play();
         if (pr && pr.then) {
-          pr.then(function () { reel.pause(); paintSoon(); })
-            .catch(function () { paintSoon(); });
+          pr.then(function () {
+            if (userPaused || cmp._visible === false) reel.pause();
+            paintSoon();
+          }).catch(function () { paintSoon(); });
         } else {
           reel.pause();
           paintSoon();
