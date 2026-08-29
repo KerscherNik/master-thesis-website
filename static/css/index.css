@@ -768,6 +768,14 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
   object-fit: cover;
   display: block;
 }
+.pe-frame .spinner {
+  display: none;
+  position: absolute;
+  top: calc(50% - 11px);
+  left: calc(50% - 11px);
+  pointer-events: none;
+}
+.pe-loading .pe-frame .spinner { display: block; }
 .pe-tag {
   position: absolute;
   top: 0.5rem;

@@ -300,3 +300,71 @@ test("user pause survives an offscreen round trip", async ({ page }) => {
   expect(await allArenaPaused(page)).toBe(true);
   expect((await ringState(page)).btn).toMatch(/Play/);
 });
+
+/* ---- slow-network behavior: on-demand priority and late arrivals ---- */
+
+test("scene switch: ring files load before the bench refetches", async ({ page }) => {
+  // hold everything for the bicycle scene; watch the request order
+  const reqs = [];
+  page.on("request", r => {
+    const m = r.url().match(/videos\/(?:av1\/)?(flythrough_[a-z0-9]+_bicycle\.mp4)/);
+    if (m) reqs.push(m[1]);
+  });
+  const relSad = await gate(page, "flythrough_sad_bicycle.mp4");
+  const relGs = await gate(page, "flythrough_3dgs_bicycle.mp4");
+  const relM = await gate(page, "flythrough_mcmc_bicycle.mp4");
+  const relF = await gate(page, "flythrough_fdsgs_bicycle.mp4");
+  await pageReady(page);
+  await page.locator("#flythrough-arena").scrollIntoViewIfNeeded();
+  await expect.poll(() => bothPlaying(page), { timeout: 60000 }).toBe(true);
+
+  await page.locator('[data-fly-scene="bicycle"]').click();
+  // the ring's two files are being requested; the bench must hold back
+  await expect.poll(() => reqs.some(f => f.includes("_sad_"))
+    && reqs.some(f => f.includes("_3dgs_")), { timeout: 10000 }).toBe(true);
+  await page.waitForTimeout(1200); // > several tileFetch retry periods
+  expect(reqs.some(f => f.includes("_mcmc_") || f.includes("_fdsgs_"))).toBe(false);
+
+  relSad(); relGs();
+  await expect(page.locator(".fa-compare")).not.toHaveClass(/fa-loading/, { timeout: 20000 });
+  // with the ring served, the bench follows
+  await expect.poll(() => reqs.some(f => f.includes("_mcmc_"))
+    && reqs.some(f => f.includes("_fdsgs_")), { timeout: 10000 }).toBe(true);
+  relM(); relF();
+  await expect(page.locator('.fa-tile[data-method="mcmc"]')).toHaveClass(/loaded/, { timeout: 20000 });
+  await expect(page.locator('.fa-tile[data-method="fds"], .fa-tile[data-method="fdsgs"]').first())
+    .toHaveClass(/loaded/, { timeout: 20000 });
+});
+
+test("a tile that arrives late joins the ring aligned and playing", async ({ page }) => {
+  const release = await gate(page, "flythrough_mcmc_flowers.mp4");
+  await pageReady(page);
+  await page.locator("#flythrough-arena").scrollIntoViewIfNeeded();
+  await expect.poll(() => bothPlaying(page), { timeout: 60000 }).toBe(true);
+  // ring advances while the tile still fetches; its spinner must show
+  await page.waitForTimeout(2500);
+  const tile = page.locator('.fa-tile[data-method="mcmc"]');
+  await expect(tile).not.toHaveClass(/loaded/);
+  release();
+  await expect(tile).toHaveClass(/loaded/, { timeout: 20000 });
+  await expect.poll(() => page.evaluate(() => {
+    const tv = document.querySelector('.fa-tile[data-method="mcmc"] video');
+    const [, b] = document.querySelectorAll(".fa-compare video");
+    return !tv.paused && Math.abs(tv.currentTime - b.currentTime) < 0.6;
+  }), { timeout: 10000 }).toBe(true);
+});
+
+test("bench watchdog revives a tile stuck paused while the ring plays", async ({ page }) => {
+  await pageReady(page);
+  await page.locator("#flythrough-arena").scrollIntoViewIfNeeded();
+  await expect.poll(() => bothPlaying(page), { timeout: 60000 }).toBe(true);
+  await expect(page.locator('.fa-tile[data-method="mcmc"]')).toHaveClass(/loaded/, { timeout: 60000 });
+  await page.evaluate(() => {
+    document.querySelector('.fa-tile[data-method="mcmc"] video').pause(); // a missed event
+  });
+  await expect.poll(() => page.evaluate(() => {
+    const tv = document.querySelector('.fa-tile[data-method="mcmc"] video');
+    const [, b] = document.querySelectorAll(".fa-compare video");
+    return !tv.paused && Math.abs(tv.currentTime - b.currentTime) < 0.6;
+  }), { timeout: 6000 }).toBe(true); // 2 s watchdog period + margin
+});

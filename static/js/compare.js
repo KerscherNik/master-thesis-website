@@ -57,6 +57,19 @@
   }
   var openLightbox, closeLightbox;
   var criticalPhaseDone = false; /* bench fetches wait for the hero pair */
+
+  /* on-demand loads (scene switch, swap, explorer switch) own the network:
+     every background chain parks while one is pending, so the user's two
+     files get the whole connection instead of a seventh of it */
+  var demandLoads = 0, demandStamp = 0;
+  var promoteBg = null; /* set by the loader: move paths to the queue front */
+  function demandUp() { demandLoads += 1; demandStamp = Date.now(); }
+  function demandDown() { demandLoads = Math.max(0, demandLoads - 1); demandStamp = Date.now(); }
+  function demandBusy() {
+    /* failsafe: a leaked counter (an element that never fires loadeddata
+       or error) must not park the background forever */
+    return demandLoads > 0 && (Date.now() - demandStamp) < 30000;
+  }
   function src(path) { return blobs[path] || netPath(path); }
 
   /* Seek that survives Safari: an early currentTime write on a just-loaded
@@ -166,6 +179,7 @@
           }
           chunks.push(r.value);
           received += r.value.length;
+          if (!bg) demandStamp = Date.now(); /* progressing: keep the gate shut */
           if (onBytes) onBytes(r.value.length);
           return pump();
         });
@@ -281,8 +295,19 @@
        section), then any remaining data-src videos */
     var queue = extraPaths.map(function (p) { return { v: null, path: p }; })
       .concat(lazyVids.map(function (v) { return { v: v, path: v.getAttribute("data-src") }; }));
+    promoteBg = function (paths) {
+      /* the explorer switched scene: its two files jump the queue */
+      paths.forEach(function (p) {
+        if (blobs[p]) return;
+        for (var i = queue.length - 1; i >= 0; i--) {
+          if (queue[i].path === p) queue.splice(i, 1);
+        }
+        queue.unshift({ v: null, path: p });
+      });
+    };
     function nextLazy() {
       if (!queue.length) return;
+      if (demandBusy()) { setTimeout(nextLazy, 400); return; }
       var t = queue.shift();
       fetchToBlob(t.path, null, null, true)
         .then(function (url) {
@@ -882,8 +907,10 @@
         v.removeEventListener("loadeddata", v._sideDone);
         v._sideDone = null;
         pendingSides = Math.max(0, pendingSides - 1);
+        demandDown();
       }
       pendingSides += 1;
+      demandUp(); /* parks the background chains for the duration */
       cmp.classList.add("fa-loading");
       if (cmp._pair) cmp._pair.hold(true); /* stale frames freeze, intent is remembered */
       v.style.opacity = "0.25";
@@ -892,6 +919,7 @@
         if (v._sideDone === done) v._sideDone = null;
         v.style.opacity = "";
         pendingSides = Math.max(0, pendingSides - 1);
+        demandDown();
         if (isPaused() && pausedAlignT != null) ensureSeek(v, pausedAlignT);
         if (!pendingSides) {
           cmp.classList.remove("fa-loading");
@@ -916,6 +944,7 @@
             if (v._gen !== gen) return;
             v.style.opacity = "";
             pendingSides = Math.max(0, pendingSides - 1);
+            demandDown();
             if (!pendingSides) {
               cmp.classList.remove("fa-loading");
               if (cmp._pair) cmp._pair.hold(false);
@@ -949,6 +978,7 @@
       tv._recovered = 0;
       tv.addEventListener("error", function () {
         var path = core.flyPath(scene, m);
+        tile.classList.remove("loaded"); /* spinner back while recovering */
         if (tv._recovered < 1) {
           tv._recovered += 1;
           revokeAV1(path);
@@ -968,23 +998,27 @@
       }
       tv.setAttribute("aria-label", label(m) + " fly-through preview, " + scene + " scene");
       if (RATE) { tv.defaultPlaybackRate = RATE; tv.playbackRate = RATE; }
-      whenRevealed(function () { fetchToBlob(core.flyPath(scene, m)).then(function (url) {
-        tv.addEventListener("loadeddata", function done() {
-          tv.removeEventListener("loadeddata", done);
-          tile.classList.add("loaded");
-          if (isPaused()) {
-            ensureSeek(tv, ringTime());
-          } else if (benchEl._visible !== false) {
-            tv.play().catch(function () {});
-          }
-        });
-        attachSrc(tv, url);
-      }).catch(function () {
-        tile.classList.add("fa-unavailable");
-        tile.setAttribute("draggable", "false");
-        tile.querySelectorAll(".fa-swap").forEach(function (b) { b.disabled = true; });
-        tile.querySelector(".fa-tile-name").textContent = label(m) + " — not available";
-      }); });
+      /* permanent, not once: every (re)attach lands here — first load, AV1
+         canary recovery, late arrival on a slow link — and joins the tile to
+         the ring's clock and play state instead of leaving it stuck */
+      tv.addEventListener("loadeddata", function () {
+        tile.classList.add("loaded");
+        if (isPaused()) {
+          ensureSeek(tv, ringTime());
+        } else if (benchEl._visible !== false) {
+          try { tv.currentTime = ringTime(); } catch (e) { /* not seekable */ }
+          tv.play().catch(function () {});
+        }
+      });
+      function tileFetch() {
+        /* a pending on-demand load (scene switch, swap) owns the network;
+           the bench follows once the ring is served */
+        if (demandBusy()) { setTimeout(tileFetch, 300); return; }
+        fetchToBlob(core.flyPath(scene, m)).then(function (url) {
+          attachSrc(tv, url);
+        }).catch(function () { markTileUnavailable(); });
+      }
+      whenRevealed(tileFetch);
 
       tile.addEventListener("dragstart", function (ev) {
         if (tile.classList.contains("fa-unavailable")) { ev.preventDefault(); return; }
@@ -1045,6 +1079,24 @@
       if (!ev.target.closest || !ev.target.closest(".ba-playpause")) return;
       setTimeout(syncBenchPlayState, 0);
     }, true);
+    /* bench watchdog, the tiles' version of the ring's: a loaded, visible
+       tile must share the arena's play state (missed events, rejected
+       play() calls, recovery re-attaches). Held = lightbox open or a side
+       reloading; everything stays frozen then. */
+    setInterval(function () {
+      if (benchEl._visible === false || !cmp._pair || cmp._pair.isHeld()) return;
+      var paused = isPaused();
+      benchEl.querySelectorAll(".fa-tile.loaded video").forEach(function (v) {
+        if (v.readyState < 2) return;
+        if (paused && !v.paused) {
+          v.pause();
+          ensureSeek(v, ringTime());
+        } else if (!paused && v.paused) {
+          try { v.currentTime = ringTime(); } catch (e) { /* not seekable */ }
+          v.play().catch(function () {});
+        }
+      });
+    }, 2000);
 
     function swap(side, m) {
       if (!m || m === left || m === right) return;
@@ -1112,7 +1164,7 @@
          on-demand load (scene switch / swap) so it gets the bandwidth */
       function next() {
         if (!rest.length) return;
-        if (pendingSides > 0) { setTimeout(next, 400); return; }
+        if (demandBusy()) { setTimeout(next, 400); return; }
         var p = rest.shift();
         fetchToBlob(p, null, null, true).catch(function (err) {
           if (isAbort(err)) { rest.unshift(p); bgResumers.push(next); return "parked"; }
@@ -1140,6 +1192,26 @@
     var k = 0, scene = "flowers", playing = false, timer = null;
 
     playBtn.innerHTML = PLAY;
+
+    /* honest loading state: a spinner over each frame until the attached
+       sources have data — scene switches on slow links are otherwise a
+       silent freeze on the previous frame */
+    root.querySelectorAll(".pe-frame").forEach(function (f) {
+      var sp = document.createElement("span");
+      sp.className = "spinner";
+      sp.setAttribute("aria-hidden", "true");
+      f.appendChild(sp);
+    });
+    function updateSpin() {
+      var ok = vSad.readyState >= 2 && vGs.readyState >= 2;
+      root.classList.toggle("pe-loading", !ok);
+    }
+    /* permanent: any later (re)load — a blob upgrade, a recovery after an
+       aborted progressive fetch — must re-evaluate the loading state */
+    [vSad, vGs].forEach(function (v) {
+      v.addEventListener("loadeddata", updateSpin);
+      v.addEventListener("error", updateSpin);
+    });
 
     /* tick marks under the slider; labels on a readable subset */
     var LABELED = { 500: "500", 5000: "5k", 10000: "10k", 20000: "20k", 30000: "30k" };
@@ -1175,12 +1247,29 @@
       root.querySelectorAll(".pe-frame").forEach(function (f) {
         f.style.aspectRatio = PROGRESS_SCENES[s].ar;
       });
+      /* the background chain should deliver these two next, not last */
+      if (promoteBg) promoteBg([PROGRESS_SCENES[s].sad, PROGRESS_SCENES[s].gs]);
       [[vSad, PROGRESS_SCENES[s].sad], [vGs, PROGRESS_SCENES[s].gs]].forEach(function (p) {
         var v = p[0];
         v.pause();
-        v.addEventListener("loadeddata", seekAll, { once: true });
+        demandUp(); /* the switch owns the network until the frame shows */
+        var settled = false;
+        function settle() {
+          if (!settled) { settled = true; demandDown(); }
+          updateSpin();
+        }
+        v.addEventListener("loadeddata", function once() {
+          v.removeEventListener("loadeddata", once);
+          seekAll();
+          settle();
+        });
+        v.addEventListener("error", function onceE() {
+          v.removeEventListener("error", onceE);
+          settle();
+        });
         attachSrc(v, src(p[1]));
       });
+      updateSpin();
     }
 
     function stop() {
@@ -1223,7 +1312,9 @@
       [[vSad, PROGRESS_SCENES[scene].sad], [vGs, PROGRESS_SCENES[scene].gs]].forEach(function (pair) {
         var v = pair[0];
         if (ev.detail !== pair[1] || v.src.indexOf("blob:") === 0) return;
-        var t = v.currentTime;
+        /* keep the shown frame; if the progressive load never produced one
+           (aborted on a slow link), land on the current checkpoint */
+        var t = v.readyState >= 2 ? v.currentTime : checkpointTime(k);
         attachSrc(v, src(pair[1]));
         ensureSeek(v, t);
       });

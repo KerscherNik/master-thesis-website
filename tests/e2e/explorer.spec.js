@@ -74,3 +74,29 @@ test("scrubbing while playing stops playback", async ({ page }) => {
   await page.waitForTimeout(1200);
   await expect(page.locator(`${EXPLORER} .pe-iter`)).toHaveText("iteration 3,000");
 });
+
+test("scene switch on a slow connection shows spinners, then lands on the checkpoint", async ({ page }) => {
+  // beforeEach already navigated; arm gated routes and load again so the
+  // truck files are held from the start
+  let release;
+  const held = new Promise(res => { release = res; });
+  const handler = async route => { await held; await route.continue().catch(() => {}); };
+  for (const f of ["progress_sad_truck.mp4", "progress_3dgs_truck.mp4"]) {
+    await page.route(`**/videos/${f}`, handler);
+    await page.route(`**/videos/av1/${f}`, handler);
+  }
+  await pageReady(page);
+
+  await page.locator(`${EXPLORER} [data-scene="truck"]`).click();
+  // no data yet: honest loading state instead of a silent freeze
+  await expect(page.locator(EXPLORER)).toHaveClass(/pe-loading/, { timeout: 5000 });
+  await expect(page.locator(`${EXPLORER} .pe-frame .spinner`).first()).toBeVisible();
+
+  release();
+  await expect(page.locator(EXPLORER)).not.toHaveClass(/pe-loading/, { timeout: 30000 });
+  // both videos sit on the first checkpoint frame (k=0 -> 10.5/30 s)
+  await expect.poll(async () => {
+    const t = await times(page);
+    return t.length === 2 && t.every(x => Math.abs(x - 0.35) < 0.1);
+  }, { timeout: 10000 }).toBe(true);
+});
