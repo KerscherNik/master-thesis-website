@@ -171,8 +171,10 @@ def main() -> None:
     # Result sliders: 2x-upscaled detail crops where the methods differ.
     # T&T/DB scenes: pick view+box by maximum *visible* SAD-vs-3DGS difference
     # (the err-gap criterion landed on flat, blurry regions there).
-    for scene in ("truck", "drjohnson"):
-        v, box = best_visible(scene)
+    # drjohnson is a dark indoor scene: a tight window shows floating specks,
+    # so use a much larger window (more zoomed out) there
+    for scene, (w, h) in (("truck", (440, 350)), ("drjohnson", (760, 600))):
+        v, box = best_visible(scene, w=w, h=h)
         VIEW[scene] = v
         CROP_VIEW[scene] = v
         CROP_BOX[scene] = box

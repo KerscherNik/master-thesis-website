@@ -93,6 +93,41 @@ test("scene tabs switch all fly-throughs and keep the method line-up", async ({ 
   await expect(page.locator('.fa-tile[data-method="mcmc"]')).toHaveClass(/loaded/, { timeout: 60000 });
 });
 
+test("pausing the ring pauses the bench, and a paused swap stays paused and frame-aligned", async ({ page }) => {
+  // wait for the ring to actually play
+  await expect.poll(() => pairPlaying(page), { timeout: 60000 }).toBe(true);
+  await expect(page.locator('.fa-tile[data-method="mcmc"]')).toHaveClass(/loaded/, { timeout: 60000 });
+
+  await page.locator(".fa-compare .ba-playpause").click();
+
+  // ring and every bench tile freeze
+  await expect.poll(() => page.evaluate(() =>
+    [...document.querySelectorAll(".fa-compare video, .fa-bench video")]
+      .every(v => v.paused)), { timeout: 5000 }).toBe(true);
+  const tRef = await page.evaluate(() =>
+    document.querySelectorAll(".fa-compare video")[1].currentTime);
+
+  // swap while paused: still paused everywhere, new side aligned to the frozen frame
+  await page.locator('.fa-tile[data-method="mcmc"] .fa-swap[data-side="b"]').click();
+  await expect.poll(() => page.evaluate(() => {
+    const [a, b] = document.querySelectorAll(".fa-compare video");
+    return b.readyState >= 2 && a.paused && b.paused;
+  }), { timeout: 60000 }).toBe(true);
+  const after = await page.evaluate(() => {
+    const [a, b] = document.querySelectorAll(".fa-compare video");
+    return { tB: b.currentTime, benchPaused: [...document.querySelectorAll(".fa-bench video")].every(v => v.paused) };
+  });
+  expect(Math.abs(after.tB - tRef)).toBeLessThan(0.2); // frame-aligned swap
+  expect(after.benchPaused).toBe(true);
+
+  // resume: ring and bench play again
+  await page.locator(".fa-compare .ba-playpause").click();
+  await expect.poll(() => pairPlaying(page), { timeout: 15000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() =>
+    [...document.querySelectorAll(".fa-bench video")]
+      .filter(v => v.readyState >= 2).some(v => !v.paused)), { timeout: 15000 }).toBe(true);
+});
+
 test("swaps compose: every method can reach the ring", async ({ page }) => {
   await page.locator('.fa-tile[data-method="mcmc"] .fa-swap[data-side="b"]').click(); // MCMC replaces 3DGS
   await expect(page.locator('.fa-tile[data-method="gs"]')).toHaveCount(1);

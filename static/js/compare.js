@@ -634,8 +634,11 @@
         }
         el.querySelectorAll("video").forEach(function (v) {
           if (!v.src || v.error) return;
-          if (e.isIntersecting) v.play().catch(function () {});
-          else v.pause();
+          if (e.isIntersecting) {
+            if (!el._userPaused) v.play().catch(function () {});
+          } else {
+            v.pause();
+          }
         });
       });
     }, { threshold: 0.15 });
@@ -691,6 +694,9 @@
         v.style.opacity = "";
         pendingSides = Math.max(0, pendingSides - 1);
         if (!pendingSides) cmp.classList.remove("fa-loading");
+        if (isPaused() && pausedAlignT != null) {
+          try { v.currentTime = pausedAlignT; } catch (e) { /* keep frame 0 */ }
+        }
       });
       fetchToBlob(path).then(function (url) {
         attachSrc(v, url);
@@ -723,7 +729,11 @@
         tv.addEventListener("loadeddata", function done() {
           tv.removeEventListener("loadeddata", done);
           tile.classList.add("loaded");
-          if (benchEl._visible !== false) tv.play().catch(function () {});
+          if (isPaused()) {
+            try { tv.currentTime = ringTime(); } catch (e) { /* keep frame 0 */ }
+          } else if (benchEl._visible !== false) {
+            tv.play().catch(function () {});
+          }
         });
         attachSrc(tv, url);
       }).catch(function () {
@@ -760,18 +770,41 @@
       benched().forEach(function (m) { benchEl.appendChild(makeTile(m)); });
     }
 
-    function resetPlayback() {
-      if (cmp._pair) cmp._pair.play();
-      if (cmp._ppBtn) {
-        cmp._ppBtn.innerHTML = PAUSE;
-        cmp._ppBtn.setAttribute("aria-label", "Pause the fly-through");
-      }
+    /* one playback state for the whole arena: pausing freezes the ring AND
+       the bench at the same moment on the shared camera path; swaps and
+       scene switches while paused stay paused, with the reloaded videos
+       frame-aligned to the paused timestamp */
+    var pausedAlignT = null;
+    function isPaused() { return !!(cmp._pair && cmp._pair.isUserPaused()); }
+    function ringTime() {
+      return pausedAlignT != null ? pausedAlignT : (vB.currentTime || vA.currentTime || 0);
     }
+
+    function syncBenchPlayState() {
+      var paused = isPaused();
+      benchEl._userPaused = paused;
+      var t = ringTime();
+      benchEl.querySelectorAll("video").forEach(function (v) {
+        if (paused) {
+          v.pause();
+          if (v.readyState >= 1) { try { v.currentTime = t; } catch (e) { /* keep frame */ } }
+        } else if (benchEl._visible !== false) {
+          v.play().catch(function () {});
+        }
+      });
+      if (!paused) pausedAlignT = null;
+    }
+    /* capture phase: the button's own handler stops propagation, but capture
+       runs first; the deferred sync then reads the already-toggled state */
+    cmp.addEventListener("click", function (ev) {
+      if (!ev.target.closest || !ev.target.closest(".ba-playpause")) return;
+      setTimeout(syncBenchPlayState, 0);
+    }, true);
 
     function swap(side, m) {
       if (!m || m === left || m === right) return;
+      if (isPaused()) pausedAlignT = (side === "a" ? vB : vA).currentTime;
       if (side === "a") left = m; else right = m;
-      resetPlayback();
       syncTexts();
       attachSide(side === "a" ? vA : vB, core.flyPath(scene, m));
       buildBench();
@@ -779,8 +812,8 @@
 
     function setScene(s) {
       if (s === scene) return;
+      if (isPaused()) pausedAlignT = vB.currentTime;
       scene = s;
-      resetPlayback();
       tabs.forEach(function (b) {
         var on = b.getAttribute("data-fly-scene") === s;
         b.classList.toggle("active", on);
