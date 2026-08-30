@@ -1311,7 +1311,8 @@
         my.canceled = true;
         pendingLoad = null;
         demandDown();
-        cmp.classList.remove("fa-loading");
+        /* the veil stays up: the arrival handler drops it once a frame is
+           provably painted (or immediately when playing) */
       };
       my.cancel = function () {
         if (my.canceled) return;
@@ -1334,28 +1335,68 @@
       });
     }
 
-    /* every (re)attach lands here: apply the current intent, prime Safari
-       (a never-played element yields no frames, even to canvas), paint */
+    /* every (re)attach lands here. Playing intent: seek back, play, done.
+       Paused intent: Safari yields no frames from a never-played element
+       and can answer a post-seek drawImage with nothing - so seek FIRST,
+       micro-play AT that position, then paint and read the pixels back,
+       retrying under the veil until a frame is provably on screen. The
+       veil (raised by beginLoad) drops only on proof - the user asked for
+       exactly this: loading state until fully ready. */
+    function canvasHasPixels(c) {
+      try {
+        var g = c.getContext("2d");
+        var d = g.getImageData(Math.max(0, (c.width >> 1) - 8),
+                               Math.max(0, (c.height >> 1) - 6), 16, 12).data;
+        var sum = 0;
+        for (var i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2];
+        return sum / (d.length / 4) > 9; /* an unpainted canvas reads ~0 */
+      } catch (e) { return true; /* unreadable: assume painted */ }
+    }
+    function unveil() { cmp.classList.remove("fa-loading"); }
     reel.addEventListener("loadeddata", function () {
       refreshTilesLoaded();
+      var t = reel._keepT || 0;
+      reel._keepT = 0;
       if (!userPaused && cmp._visible !== false) {
+        if (t) ensureSeek(reel, t);
         reel.play().catch(function () { paintSoon(); });
         paintSoon();
-      } else {
-        /* prime the decoder with a muted micro play; when the promise
-           resolves, re-check the CURRENT intent - the user may have
-           pressed play meanwhile, and a stale pause() here would swallow
-           that press (found by the production sweep) */
+        unveil();
+        return;
+      }
+      var tries = 0;
+      function attempt() {
+        if (!userPaused) { unveil(); return; } /* play pressed meanwhile */
+        tries += 1;
         var pr = reel.play();
-        if (pr && pr.then) {
-          pr.then(function () {
-            if (userPaused || cmp._visible === false) reel.pause();
-            paintSoon();
-          }).catch(function () { paintSoon(); });
-        } else {
+        var settle = function () {
+          if (!userPaused) { unveil(); return; } /* now playing: leave it */
           reel.pause();
-          paintSoon();
+          paintAll(true);
+          if (canvasHasPixels(wipe) || tries >= 8) { unveil(); requestRepaint(); }
+          else setTimeout(attempt, 160);
+        };
+        if (pr && pr.then) {
+          pr.then(settle).catch(function () {
+            /* autoplay denied: cannot prime without a gesture; paint what
+               is available and unveil - the play button will paint */
+            paintAll(true);
+            unveil();
+          });
+        } else settle();
+      }
+      if (t && Math.abs(reel.currentTime - t) > 0.05) {
+        var onSeeked = function () {
+          reel.removeEventListener("seeked", onSeeked);
+          attempt();
+        };
+        reel.addEventListener("seeked", onSeeked);
+        try { reel.currentTime = t; } catch (e) {
+          reel.removeEventListener("seeked", onSeeked);
+          attempt();
         }
+      } else {
+        attempt();
       }
     });
 
@@ -1384,9 +1425,6 @@
       buildBench(); /* fresh aria labels; spinners until the reel is ready */
       beginLoad(core.gridPath(s));
     }
-    reel.addEventListener("loadeddata", function () {
-      if (reel._keepT) { ensureSeek(reel, reel._keepT); reel._keepT = 0; }
-    });
     tabs.forEach(function (b) {
       b.addEventListener("click", function () { setScene(b.getAttribute("data-fly-scene")); });
     });
@@ -1468,24 +1506,52 @@
         core.formatIteration(CHECKPOINTS[k]) + " of 30,000");
     }
 
-    /* every (re)attach: prime the decoder (Safari yields no frames from a
-       never-played element), land on the current checkpoint, unveil */
+    /* every (re)attach: seek to the current checkpoint FIRST, then prime
+       the decoder AT that position (Safari yields no frames from a
+       never-played element, and a post-seek drawImage can return
+       nothing), then paint and verify pixels before dropping the veil */
+    function paneHasPixels() {
+      try {
+        var g = cSad.getContext("2d");
+        var d = g.getImageData(Math.max(0, (cSad.width >> 1) - 8),
+                               Math.max(0, (cSad.height >> 1) - 6), 16, 12).data;
+        var sum = 0;
+        for (var i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2];
+        return sum / (d.length / 4) > 9;
+      } catch (e) { return true; }
+    }
     reel.addEventListener("loadeddata", function () {
-      var settle = function () {
-        seekAll();
-        /* deterministic veil ownership: loadReel raises it, arrival lowers
-           it (readyState polling re-raised it during the very seek that
-           proved the data had arrived) */
-        root.classList.remove("pe-loading");
-        paintSoon();
+      seekAll(); /* label, slider, and the seek toward checkpointTime(k) */
+      var tries = 0;
+      function attempt() {
+        tries += 1;
+        var pr = reel.play();
+        var settle = function () {
+          reel.pause();
+          paintPanes();
+          if (paneHasPixels() || tries >= 8) {
+            root.classList.remove("pe-loading");
+            paintSoon();
+          } else {
+            setTimeout(attempt, 160);
+          }
+        };
+        if (pr && pr.then) {
+          pr.then(settle).catch(function () {
+            paintPanes();
+            root.classList.remove("pe-loading");
+          });
+        } else settle();
+      }
+      var onSeeked = function () {
+        reel.removeEventListener("seeked", onSeeked);
+        attempt();
       };
-      var pr = reel.play();
-      if (pr && pr.then) {
-        pr.then(function () { reel.pause(); settle(); })
-          .catch(settle);
-      } else {
-        reel.pause();
-        settle();
+      reel.addEventListener("seeked", onSeeked);
+      /* if the seek is a no-op (already at target), seeked never fires */
+      if (Math.abs(reel.currentTime - checkpointTime(k)) < 0.05) {
+        reel.removeEventListener("seeked", onSeeked);
+        attempt();
       }
     });
     reel._recovered = 0;

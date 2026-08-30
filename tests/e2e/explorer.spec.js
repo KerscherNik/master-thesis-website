@@ -102,3 +102,29 @@ test("the two panes sit side by side on desktop, reel takes no cell", async ({ p
   expect(Math.abs(boxes.aTop - boxes.bTop)).toBeLessThan(2); // same row
   expect(boxes.bLeft).toBeGreaterThan(boxes.aLeft + boxes.aW * 0.8); // side by side
 });
+
+test("scene switch: the veil drops only after the panes are painted", async ({ page }) => {
+  let release;
+  const held = new Promise(res => { release = res; });
+  const handler = async route => { await held; await route.continue().catch(() => {}); };
+  await page.route("**/grid/proggrid_bicycle.mp4", handler);
+  await page.route("**/av1/grid/proggrid_bicycle.mp4", handler);
+  await pageReady(page);
+  await page.locator(EXPLORER).scrollIntoViewIfNeeded();
+  await expect(page.locator(EXPLORER)).not.toHaveClass(/pe-loading/, { timeout: 30000 });
+
+  await page.locator(`${EXPLORER} [data-scene="bicycle"]`).click();
+  await expect(page.locator(EXPLORER)).toHaveClass(/pe-loading/, { timeout: 5000 });
+  release();
+  await expect(page.locator(EXPLORER)).not.toHaveClass(/pe-loading/, { timeout: 30000 });
+  // no grace period: unveiled panes must ALREADY be painted
+  const lum = await page.evaluate(() => {
+    const c = document.querySelector('canvas[data-role="sad"]');
+    const x = document.createElement("canvas"); x.width = 32; x.height = 24;
+    const g = x.getContext("2d"); g.drawImage(c, 0, 0, 32, 24);
+    const d = g.getImageData(0, 0, 32, 24).data;
+    let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i];
+    return Math.round(s / (d.length / 4));
+  });
+  expect(lum).toBeGreaterThan(15);
+});

@@ -222,3 +222,17 @@ test("cached scene switch while paused, then play: the press sticks", async ({ p
   await page.waitForTimeout(1200);
   expect((await reelState(page)).paused).toBe(false);
 });
+
+test("paused switch: the veil drops only after a frame is on the canvas", async ({ page }) => {
+  const release = await gate(page, "flygrid_garden.mp4");
+  await ready(page);
+  await expect.poll(async () => !(await reelState(page)).paused, { timeout: 15000 }).toBe(true);
+  await page.locator(`${CMP} .ba-playpause`).click(); // pause
+  await page.locator('[data-fly-scene="garden"]').click();
+  await expect(page.locator(CMP)).toHaveClass(/fa-loading/);
+  release();
+  await expect(page.locator(CMP)).not.toHaveClass(/fa-loading/, { timeout: 30000 });
+  // no grace period: the unveiled canvas must ALREADY be painted
+  expect(await canvasLum(page, ".fa-wipe")).toBeGreaterThan(15);
+  expect((await reelState(page)).paused).toBe(true);
+});
