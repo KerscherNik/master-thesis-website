@@ -946,7 +946,17 @@
     var cmp = root.querySelector(".fa-compare");
     var reel = cmp.querySelector(".fa-reel");
     var wipe = cmp.querySelector(".fa-wipe");
-    var ctx = wipe.getContext("2d");
+    var ctx = wipe.getContext("2d", { alpha: false });
+    /* paint at display resolution: a tile shown at ~100 CSS px must not be
+       rasterised at 478px every frame - that alone saturated a mid-range
+       phone's main thread (measured: 15 s of long tasks per drag) */
+    function fitCanvas(c) {
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var w = Math.round((c.clientWidth || c.width) * dpr);
+      if (!w) return;
+      var h = Math.round(w * 630 / 956);
+      if (Math.abs(c.width - w) > c.width * 0.2) { c.width = w; c.height = h; }
+    }
     var benchEl = root.querySelector(".fa-bench");
     var tabs = [].slice.call(root.querySelectorAll("[data-fly-scene]"));
     var zones = [].slice.call(root.querySelectorAll(".fa-drop"));
@@ -975,6 +985,7 @@
     var tilePainters = [];
     var lbPainter = null;
     function paintWipe() {
+      fitCanvas(wipe);
       var cw = wipe.width, ch = wipe.height;
       var L = quadRect(left), R = quadRect(right);
       var split = Math.round(cw * frac);
@@ -986,23 +997,52 @@
                       split, 0, cw - split, ch);
       }
     }
-    function paintAll() {
+    var tick = 0;
+    function paintAll(everything) {
       if (reel.readyState < 2) return;
       try { paintWipe(); } catch (e) { /* keep going */ }
-      tilePainters.forEach(function (p) { try { p(); } catch (e) { /* ditto */ } });
+      tick += 1;
+      /* tiles are small previews: a third of the frame rate is plenty,
+         and none at all while the slider is being dragged */
+      if (!draggingSlider && (everything || tick % 3 === 0)) {
+        tilePainters.forEach(function (p) { try { p(); } catch (e) { /* ditto */ } });
+      }
       if (lbPainter) { try { lbPainter(); } catch (e) { /* ditto */ } }
     }
     /* rVFC paints exactly when a frame is presented; rAF is the fallback.
        Paused states repaint on demand - a canvas keeps its last pixels. */
-    var useRVFC = typeof reel.requestVideoFrameCallback === "function";
-    function loop() { paintAll(); schedule(); }
-    function schedule() {
-      if (useRVFC) reel.requestVideoFrameCallback(loop);
-      else requestAnimationFrame(loop);
+    /* plain requestAnimationFrame drives the painting, exactly like the
+       proven video_comparison.js pattern. requestVideoFrameCallback was
+       tried first and starves in Safari for a height-0 video (it treats
+       it as invisible, worse after a src swap) - the divider then tracks
+       the pointer while the painted split lags seconds behind. The
+       dirty/time gate keeps paused frames free; the adaptive skip keeps
+       slow phones responsive (paint cost measured, ticks dropped). */
+    var lastPaintT = -1, dirty = true;
+    var paintCost = 0, skipLeft = 0;
+    function requestRepaint() { dirty = true; }
+    function loop() {
+      var t = reel.currentTime;
+      if ((dirty || t !== lastPaintT) && reel.readyState >= 2) {
+        if (skipLeft > 0) {
+          skipLeft -= 1;
+        } else {
+          var t0 = performance.now();
+          paintAll();
+          lastPaintT = t;
+          dirty = false;
+          paintCost = 0.8 * paintCost + 0.2 * (performance.now() - t0);
+          skipLeft = paintCost > 24 ? 2 : (paintCost > 12 ? 1 : 0);
+        }
+      }
+      requestAnimationFrame(loop);
     }
-    schedule();
+    requestAnimationFrame(loop);
     /* double-paint after seeks and loads: WebKit has served stale frames */
-    function paintSoon() { paintAll(); setTimeout(paintAll, 80); }
+    function paintSoon() {
+      requestRepaint();
+      setTimeout(function () { requestRepaint(); }, 90);
+    }
     reel.addEventListener("seeked", paintSoon);
 
     /* ---- slider chrome (canvas-backed port of the DOM wipe) ---- */
@@ -1033,10 +1073,11 @@
       handle.setAttribute("aria-valuetext",
         Math.round(pos) + "% " + label(left) + ", " +
         (100 - Math.round(pos)) + "% " + label(right));
-      if (reel.paused) paintAll();
+      requestRepaint(); /* the rAF loop repaints with the new split */
     }
+    var dragRect = null;
     function fromEvent(ev) {
-      var rect = wipe.getBoundingClientRect();
+      var rect = dragRect || wipe.getBoundingClientRect();
       var x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left;
       frac = clamp(x / rect.width, 0, 1);
       applySlider();
@@ -1045,12 +1086,17 @@
     cmp.addEventListener("pointerdown", function (ev) {
       if (ev.target.closest && ev.target.closest(".ba-playpause, .ba-expand, .fa-drop")) return;
       draggingSlider = true;
+      dragRect = wipe.getBoundingClientRect();
       if (cmp.setPointerCapture) cmp.setPointerCapture(ev.pointerId);
       fromEvent(ev);
     });
     cmp.addEventListener("pointermove", function (ev) { if (draggingSlider) fromEvent(ev); });
     ["pointerup", "pointercancel"].forEach(function (t) {
-      cmp.addEventListener(t, function () { draggingSlider = false; });
+      cmp.addEventListener(t, function () {
+        draggingSlider = false;
+        dragRect = null;
+        paintAll(true); /* tiles catch up after the drag */
+      });
     });
     handle.addEventListener("keydown", function (ev) {
       if (ev.key === "ArrowLeft") { frac = clamp(frac - 0.02, 0, 1); applySlider(); ev.preventDefault(); }
@@ -1174,8 +1220,14 @@
       var tc = tile.querySelector("canvas");
       tc.setAttribute("role", "img");
       tc.setAttribute("aria-label", label(m) + " fly-through preview, " + scene + " scene");
-      var tctx = tc.getContext("2d");
+      var tctx = tc.getContext("2d", { alpha: false });
       tilePainters.push(function () {
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        var w = Math.round((tc.clientWidth || 104) * dpr);
+        if (w && Math.abs(tc.width - w) > tc.width * 0.2) {
+          tc.width = w;
+          tc.height = Math.round(w * 630 / 956);
+        }
         var r = quadRect(m);
         tctx.drawImage(reel, r.x, r.y, r.w, r.h, 0, 0, tc.width, tc.height);
       });

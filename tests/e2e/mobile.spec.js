@@ -154,3 +154,19 @@ test.describe("reduced motion", () => {
     expect(styles.transition).toBe("0s");
   });
 });
+
+test("corner labels never overlap, even with Gaussian counts", async ({ page }) => {
+  await pageReady(page);
+  for (const sel of [".ba-compare", ".fa-compare"]) {
+    const first = page.locator(sel).first();
+    await first.scrollIntoViewIfNeeded();
+    const boxes = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      const a = el.querySelector(".ba-label.a"), b = el.querySelector(".ba-label.b");
+      if (!a || !b) return null;
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      return { a: [ra.left, ra.right], b: [rb.left, rb.right] };
+    }, sel);
+    if (boxes) expect(boxes.a[1]).toBeLessThanOrEqual(boxes.b[0] + 1);
+  }
+});

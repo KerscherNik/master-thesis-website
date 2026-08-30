@@ -223,7 +223,10 @@ h2 + h3 { margin-top: 2.5rem; }
   pointer-events: none;
 }
 .ba-compare .ba-label.a { left: 0.6rem; }
-.ba-compare .ba-label.b { right: 0.6rem; }
+.ba-compare .ba-label.b { right: 0.6rem; text-align: right; }
+/* narrow screens: long labels (method + Gaussian count) must wrap into
+   their own corner, never collide in the middle */
+.ba-compare .ba-label { max-width: 44%; }
 .ba-compare .ba-label strong { color: #7fd4dc; font-weight: 600; }
 
 .compare-stack { display: grid; gap: 2.75rem; margin-top: 0.75rem; }
