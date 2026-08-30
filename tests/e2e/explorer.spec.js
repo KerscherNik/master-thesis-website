@@ -92,3 +92,13 @@ test("scene switch on a slow connection shows spinners, then lands on the checkp
   await expect.poll(async () => Math.abs(await reelTime(page) - 0.35) < 0.1,
     { timeout: 10000 }).toBe(true);
 });
+
+test("the two panes sit side by side on desktop, reel takes no cell", async ({ page }) => {
+  const boxes = await page.evaluate(() => {
+    const [a, b] = document.querySelectorAll("#progress-explorer .pe-frame");
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    return { aTop: ra.top, bTop: rb.top, aLeft: ra.left, bLeft: rb.left, aW: ra.width };
+  });
+  expect(Math.abs(boxes.aTop - boxes.bTop)).toBeLessThan(2); // same row
+  expect(boxes.bLeft).toBeGreaterThan(boxes.aLeft + boxes.aW * 0.8); // side by side
+});
