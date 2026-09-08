@@ -41,18 +41,28 @@ jobs:
           npx playwright test --project=webkit --reporter=list,json \
             tests/e2e/webkit-diag.spec.js tests/e2e/explorer.spec.js tests/e2e/arena.spec.js tests/e2e/compare.spec.js \
             2>&1 | tee /tmp/webkit-stdout.txt
-      - name: Publish results to the webkit-results branch
+      - name: Collect results
         run: |
-          set -e
           mkdir -p /tmp/results
           cp -r test-results/. /tmp/results/ 2>/dev/null || true
           cp -r ci-diag /tmp/results/ 2>/dev/null || true
           cp /tmp/webkit-stdout.txt /tmp/webkit-results.json /tmp/server.log /tmp/server-check.txt /tmp/results/ 2>/dev/null || true
           find /tmp/results -name "*.webm" -delete
-          cd /tmp/results
-          git init -q && git checkout -q -b webkit-results
-          git config user.name "webkit-ci" && git config user.email "ci@users.noreply.github.com"
-          git add -A && git commit -qm "webkit results for ${GITHUB_SHA::7}"
-          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:webkit-results
+          find /tmp/results -name "*.zip" -size +20M -delete
+          du -sh /tmp/results; ls -la /tmp/results
+      - name: Init results repo
+        working-directory: /tmp/results
+        run: |
+          git init -q -b webkit-results
+          git config user.name "webkit-ci"
+          git config user.email "ci@users.noreply.github.com"
+      - name: Commit results
+        working-directory: /tmp/results
+        run: |
+          git add -A
+          git commit -qm "webkit results for ${GITHUB_SHA::7}" --allow-empty
+      - name: Push results branch
+        working-directory: /tmp/results
+        run: git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:webkit-results
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
