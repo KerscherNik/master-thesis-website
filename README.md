@@ -51,7 +51,7 @@ robots meta line in `index.html` (marked with a comment) and delete
    checkpoints (500 to 30,000 iterations) by a timeline scrubber, for
    four scenes.
 9. Pareto plot.
-10. "What we found": the matched-count control, the null result for the
+10. "Discussion: one paragraph on what the results mean and their limits.
     loss-level prior FreCo at three weights, the capacity reading that
     explains both, DISTS, training time against converged count, the
     uniform prune-floor control, and a "what this does not show"

@@ -244,7 +244,8 @@
      VGG backbone and FPS as 1000 / mean render time. Bold marks the better of SAD and its 3DGS baseline in each block,
      not the best of the column. SAD is not the strongest method here. MCMC has the best PSNR at the largest count, and
      FDS-GS is ahead on every quality metric at 2.09M, only 9% above SAD's count, so that pairing is the one the budget
-     does not confound. FreCo places the same frequency signal in the photometric loss and stays at the baseline. The
+     does not confound. FreCo places the same frequency signal in the photometric loss and stays at the baseline, at its default
+     weight and at 20 and 80 times that weight. The
      count reduction transfers to Tanks&nbsp;&amp;&nbsp;Temples and Deep Blending, while the perceptual metrics there
      do not, and on Tanks&nbsp;&amp;&nbsp;Temples the reduction is largely a side effect of the prune reading one view
      at a time.</p>
@@ -404,32 +405,26 @@
   <p class="caption">PSNR and LPIPS against Gaussian count, nine-scene Mip-NeRF&nbsp;360 averages, all methods under our
      pipeline, each at its own converged configuration and MCMC at its configured cap. SAD sits left of its 3DGS
      baseline with lower LPIPS and with PSNR inside the noise band. It lies on the LPIPS front, between
-     Mini-Splatting-ms and FDS-GS, and, computed from the table above, on the SSIM front as well, since no method
-     reaches its 0.842 average at a lower count. It lies inside the PSNR front, which Mini-Splatting-ms and Taming-3DGS
-     form at the low-count end and FDS-GS and MCMC at the high-quality end. A second SAD configuration that prunes less aggressively reaches 28.28&nbsp;dB, 0.847
-     SSIM and 0.174 LPIPS at 4.03M, above the baseline on all three image metrics at a count above the baseline's.</p>
+     Mini-Splatting-ms and FDS-GS, and inside the PSNR front, which Mini-Splatting-ms and Taming-3DGS form at the
+     low-count end and FDS-GS and MCMC at the high-quality end. A 3DGS baseline trimmed to SAD's count by an opacity
+     cap reaches SAD's PSNR and 0.13&nbsp;dB more, but not its SSIM and LPIPS, so the frequency signal changes where
+     the Gaussians sit rather than how many there are. A second SAD configuration that prunes less aggressively
+     reaches 28.28&nbsp;dB, 0.847 SSIM and 0.174 LPIPS at 4.03M, above the baseline on all three image metrics at a
+     count above the baseline's.</p>
 </section>
 
-<!-- ================= findings ================= -->
+<!-- ================= discussion ================= -->
 <section class="container narrow">
-  <h2>Findings</h2>
+  <h2>Discussion</h2>
   <div class="prose">
-    <p><strong>Same count, different placement.</strong> A 3DGS baseline trimmed to SAD's Gaussian
-    count by an opacity cap matches SAD's PSNR (28.20 against 28.07&nbsp;dB), and SAD keeps the
-    better SSIM and LPIPS (0.842 against 0.836, 0.195 against 0.205). The frequency signal changes
-    where the Gaussians sit, not how many there are.</p>
-    <p><strong>The loss is the wrong place for the prior.</strong> The same frequency signal added
-    to the photometric loss (FreCo) leaves quality and count at the baseline on all nine scenes, at
-    its default weight and at 20 and 80 times that weight.</p>
-    <p><strong>Why.</strong> 3DGS lacks Gaussians where fine detail is missing. A loss term pulls
-    harder on Gaussians that cannot represent the detail; densification creates ones that can.</p>
-    <p><strong>Where it helps.</strong> The perceptual gains come from the textured outdoor scenes
-    (flowers, stump); indoors SAD costs PSNR. DISTS, a texture-tolerant metric, agrees scene by
-    scene. Training time follows the converged count, 14% faster on bicycle and 42% slower on
-    flowers.</p>
-    <p><strong>Caveats.</strong> Single seed. On Tanks and Temples the count reduction is largely a
-    side effect of the prune reading one view at a time. MCMC and FDS-GS reach higher quality at
-    their own counts.</p>
+    <p>The reading that fits these results is that 3DGS lacks Gaussians where fine detail is missing, rather
+    than being steered away from it by the loss. A frequency term in the loss pulls harder on Gaussians that
+    cannot represent the detail, whereas the densification rule creates ones that can, which is why the same
+    signal changes the outcome at the rule and not at the loss. The gain shows on the textured outdoor scenes,
+    where SAD renders grass and petals that the baseline smooths away, while on the indoor scenes it costs some
+    PSNR, and DISTS, a metric that tolerates displaced texture, agrees with LPIPS scene by scene. All runs use a
+    single seed, and MCMC and FDS-GS reach higher quality at their own counts, so the claim is an improvement over
+    the baseline at a smaller model size rather than a new state of the art.</p>
   </div>
 </section>
 
