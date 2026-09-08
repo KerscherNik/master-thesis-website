@@ -787,15 +787,20 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
   aspect-ratio: 1256 / 828;
 }
 .pe-pair { position: relative; }
-/* the hidden reel must NOT occupy a grid cell (it displaced the panes
-   diagonally); absolute keeps it rendered in-viewport at zero size */
+/* the hidden reel must NOT displace the panes, and Safari only feeds
+   frames to a video that is laid out in flow (the arena reel is the same
+   zero-height in-flow block and works there; an absolutely positioned
+   zero-height reel left the panes black in Safari). It therefore takes a
+   full-width grid row of its own, whose height and gap collapse to zero. */
 .pe-pair .pe-reel {
   display: block;
-  position: absolute;
-  top: 0;
-  left: 0;
+  grid-column: 1 / -1;
   width: 100%;
   height: 0;
+  margin-bottom: -0.75rem;
+}
+@media (max-width: 640px) {
+  .pe-pair .pe-reel { grid-column: 1; }
 }
 .pe-frame canvas {
   width: 100%;

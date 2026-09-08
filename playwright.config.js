@@ -22,6 +22,10 @@ module.exports = defineConfig({
     timeout: 15000
   },
   projects: [
+    ...(process.env.PW_WEBKIT ? [{
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+    }] : []),
     {
       name: "chromium",
       use: { browserName: "chromium" },

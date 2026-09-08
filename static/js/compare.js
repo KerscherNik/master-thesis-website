@@ -1527,7 +1527,18 @@
         c.getContext("2d").drawImage(reel, pane[1], 0, hw, hh, 0, 0, hw, hh);
       });
     }
-    function paintSoon() { paintPanes(); setTimeout(paintPanes, 80); }
+    /* Safari may hand out the frame of a paused, hidden video some time
+       after seeked; paint again at growing delays until pixels arrive */
+    var paintTimers = [];
+    function paintSoon() {
+      paintTimers.forEach(clearTimeout); paintTimers = [];
+      paintPanes();
+      [80, 250, 600, 1200].forEach(function (ms) {
+        paintTimers.push(setTimeout(function () {
+          if (!paneHasPixels()) paintPanes();
+        }, ms));
+      });
+    }
     reel.addEventListener("seeked", paintSoon);
 
     function seekAll() {

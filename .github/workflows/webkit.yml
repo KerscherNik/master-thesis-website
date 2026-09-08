@@ -1,0 +1,32 @@
+# Safari check: Playwright's WebKit on a macOS runner (the system media
+# frameworks, which is where the Linux WebKit build differs from Safari).
+# Runs on pushes to the webkit-check branch and on manual dispatch; it
+# deploys nothing.
+name: WebKit
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [webkit-check]
+  workflow_dispatch:
+
+jobs:
+  webkit:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install webkit
+      - run: PW_WEBKIT=1 npx playwright test --project=webkit tests/e2e/explorer.spec.js tests/e2e/arena.spec.js tests/e2e/compare.spec.js
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-report
+          path: test-results/
