@@ -71,6 +71,9 @@ jobs:
         # add a separate `npx playwright install-deps chromium` step back.
         run: npx playwright install chromium
 
+      - name: Smoke tests first (fail fast)
+        run: npm run test:smoke
+
       - name: End-to-end tests (Playwright)
         run: npm run test:e2e
 

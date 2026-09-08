@@ -9,6 +9,9 @@ module.exports = defineConfig({
      flakes in CI only (retried passes are labeled "flaky" in the report) */
   workers: process.env.CI ? 3 : 4,
   retries: process.env.CI ? 2 : 0,
+  /* fail fast in CI: one real failure aborts the run instead of burning the
+     remaining minutes; locally the whole suite runs so every failure shows */
+  maxFailures: process.env.CI ? 1 : 0,
   reporter: [["list"]],
   use: {
     baseURL: "http://127.0.0.1:4173",

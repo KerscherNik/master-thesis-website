@@ -22,7 +22,10 @@ robots meta line in `index.html` (marked with a comment) and delete
   with ffmpeg.
 - Renders: PyTorch / 3DGS pipelines on a SLURM cluster
   (see `asset_scripts/`).
-- Tests: Vitest (unit) and Playwright (end-to-end).
+- Tests: Vitest (unit) and Playwright (end-to-end). `npm test` runs unit, then a
+  one-minute smoke set, then the full suite; `npm run test:changed` runs only the
+  tests touched by the diff against origin/main and stops at the first failure;
+  in CI one failure aborts the run.
 - Hosting: GitHub Pages, deployed by GitHub Actions.
 
 ## Page content

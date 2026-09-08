@@ -4,8 +4,10 @@
   "description": "Project page for 'A High-Frequency Perspective on 3D Gaussian Splatting', with unit (Vitest) and end-to-end (Playwright) tests",
   "scripts": {
     "serve": "python3 tests/server.py 4173",
-    "test": "npm run test:unit && npm run test:e2e",
+    "test": "npm run test:unit && npm run test:smoke && npm run test:e2e",
     "test:unit": "vitest run",
+    "test:smoke": "playwright test tests/e2e/smoke.spec.js tests/e2e/a11y.spec.js --project=chromium -x",
+    "test:changed": "playwright test --only-changed=origin/main -x",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
