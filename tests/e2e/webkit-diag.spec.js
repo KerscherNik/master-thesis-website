@@ -41,7 +41,7 @@ test("explorer diagnostics", async ({ page, browserName }, testInfo) => {
   const ua = await page.evaluate(() => navigator.userAgent); log.unshift(`[env] ${browserName} ${ua}`);
   await root.screenshot({ path: testInfo.outputPath("explorer.png") }).catch(() => {});
   fs.writeFileSync(testInfo.outputPath("diag.txt"), log.join("\n"));
-  fs.mkdirSync("test-results/diag", { recursive: true });
-  fs.writeFileSync("test-results/diag/webkit-diag.txt", log.join("\n"));
-  try { fs.copyFileSync(testInfo.outputPath("explorer.png"), "test-results/diag/explorer.png"); } catch (e) {}
+  fs.mkdirSync("ci-diag", { recursive: true });
+  fs.writeFileSync("ci-diag/webkit-diag-" + browserName + ".txt", log.join("\n"));
+  try { fs.copyFileSync(testInfo.outputPath("explorer.png"), "ci-diag/explorer-" + browserName + ".png"); } catch (e) {}
 });

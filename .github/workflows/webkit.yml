@@ -25,20 +25,29 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install webkit
+      - name: Start the static server
+        run: |
+          (python3 tests/server.py 4173 > /tmp/server.log 2>&1 &)
+          sleep 3
+          curl -sS -o /dev/null -w "server http %{http_code}\n" http://localhost:4173/index.html > /tmp/server-check.txt 2>&1 || echo "server unreachable" >> /tmp/server-check.txt
+          cat /tmp/server-check.txt
       - name: Run WebKit tests
         continue-on-error: true
         env:
           PW_WEBKIT: "1"
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/webkit-results.json
+          PLAYWRIGHT_JSON_OUTPUT_NAME: /tmp/webkit-results.json
         run: |
+          set -o pipefail
           npx playwright test --project=webkit --reporter=list,json \
             tests/e2e/webkit-diag.spec.js tests/e2e/explorer.spec.js tests/e2e/arena.spec.js tests/e2e/compare.spec.js \
-            2>&1 | tee test-results/webkit-stdout.txt
+            2>&1 | tee /tmp/webkit-stdout.txt
       - name: Publish results to the webkit-results branch
         run: |
           set -e
           mkdir -p /tmp/results
           cp -r test-results/. /tmp/results/ 2>/dev/null || true
+          cp -r ci-diag /tmp/results/ 2>/dev/null || true
+          cp /tmp/webkit-stdout.txt /tmp/webkit-results.json /tmp/server.log /tmp/server-check.txt /tmp/results/ 2>/dev/null || true
           find /tmp/results -name "*.webm" -delete
           cd /tmp/results
           git init -q && git checkout -q -b webkit-results
