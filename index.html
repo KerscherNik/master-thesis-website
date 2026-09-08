@@ -417,14 +417,14 @@
 <section class="container narrow">
   <h2>Discussion</h2>
   <div class="prose">
-    <p>The reading that fits these results is that 3DGS lacks Gaussians where fine detail is missing, rather
-    than being steered away from it by the loss. A frequency term in the loss pulls harder on Gaussians that
-    cannot represent the detail, whereas the densification rule creates ones that can, which is why the same
-    signal changes the outcome at the rule and not at the loss. The gain shows on the textured outdoor scenes,
-    where SAD renders grass and petals that the baseline smooths away, while on the indoor scenes it costs some
-    PSNR, and DISTS, a metric that tolerates displaced texture, agrees with LPIPS scene by scene. All runs use a
-    single seed, and MCMC and FDS-GS reach higher quality at their own counts, so the claim is an improvement over
-    the baseline at a smaller model size rather than a new state of the art.</p>
+    <p>3DGS lacks Gaussians where fine detail is missing, and the loss does not steer training away from that
+    detail. This explains both results. A frequency term in the loss pulls harder on Gaussians that cannot
+    represent the detail, whereas the densification rule creates Gaussians that can, so the same signal changes
+    the outcome at the rule and not at the loss. The gain appears on the textured outdoor scenes, where SAD
+    renders grass and petals that the baseline smooths away. On the indoor scenes SAD costs some PSNR. DISTS,
+    which compares texture statistics rather than pixel positions, agrees with LPIPS on every scene. All runs
+    use a single seed, and MCMC and FDS-GS reach higher quality at their own counts. The result is an
+    improvement over the baseline at a smaller model size, not a new state of the art.</p>
   </div>
 </section>
 

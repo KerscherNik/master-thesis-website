@@ -796,8 +796,10 @@ img.zoomable, .video-slot.zoomable { cursor: zoom-in; }
   display: block;
   grid-column: 1 / -1;
   width: 100%;
-  height: 0;
-  margin-bottom: -0.75rem;
+  height: 1px;          /* one rendered pixel: Safari treats a zero-area video as not displayed */
+  opacity: 0.01;
+  pointer-events: none;
+  margin-bottom: calc(-0.75rem - 1px);
 }
 @media (max-width: 640px) {
   .pe-pair .pe-reel { grid-column: 1; }

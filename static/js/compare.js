@@ -1565,25 +1565,37 @@
     }
     reel.addEventListener("loadeddata", function () {
       seekAll(); /* label, slider, and the seek toward checkpointTime(k) */
-      var tries = 0;
+      var tries = 0, settledOnce = false;
+      /* watchdog: whatever the priming does, the veil drops and the panes
+         are painted within three seconds; later seeks keep repainting */
+      var watchdog = setTimeout(function () {
+        if (!root.classList.contains("pe-loading")) return;
+        paintPanes();
+        root.classList.remove("pe-loading");
+        paintSoon();
+      }, 3000);
       function attempt() {
         tries += 1;
-        var pr = reel.play();
+        var done = false;
         var settle = function () {
+          if (done) return;
+          done = true;
           reel.pause();
           paintPanes();
           if (paneHasPixels() || tries >= 8) {
+            clearTimeout(watchdog);
             root.classList.remove("pe-loading");
             paintSoon();
           } else {
             setTimeout(attempt, 160);
           }
         };
+        var pr = null;
+        try { pr = reel.play(); } catch (e) { pr = null; }
         if (pr && pr.then) {
-          pr.then(settle).catch(function () {
-            paintPanes();
-            root.classList.remove("pe-loading");
-          });
+          /* Safari can leave play() pending on a hidden video: settle anyway */
+          pr.then(settle).catch(settle);
+          setTimeout(settle, 700);
         } else settle();
       }
       var onSeeked = function () {
