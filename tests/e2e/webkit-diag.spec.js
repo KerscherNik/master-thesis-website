@@ -5,6 +5,7 @@ const { test } = require("@playwright/test");
 const fs = require("fs");
 
 test("explorer diagnostics", async ({ page, browserName }, testInfo) => {
+  test.skip(browserName !== "webkit", "diagnostic dump for the manual WebKit job only");
   const log = [];
   page.on("console", (m) => log.push(`[console.${m.type()}] ${m.text()}`));
   page.on("pageerror", (e) => log.push(`[pageerror] ${e.message}`));
