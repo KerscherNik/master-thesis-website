@@ -412,79 +412,24 @@
 
 <!-- ================= findings ================= -->
 <section class="container narrow">
-  <h2>What we found</h2>
-
-  <h3>The count reduction is available without the frequency signal</h3>
+  <h2>Findings</h2>
   <div class="prose">
-    <p>We trained the baseline with a hard cap at SAD's converged count on each scene, removing the lowest-opacity
-       Gaussians above the cap after every densification pass. Over the nine scenes the capped baseline reaches
-       28.20&nbsp;dB, which is SAD's PSNR and 0.13&nbsp;dB more, while SAD keeps the better SSIM (0.842 against 0.836)
-       and LPIPS (0.195 against 0.205). The reduction in count is therefore available from an opacity cap alone. What
-       the frequency signal adds at the same count is where the Gaussians sit, which shows on the textured outdoor
-       scenes, where SAD is ahead on all three metrics on stump and flowers, and costs PSNR indoors, by 0.54&nbsp;dB on
-       room, 0.60&nbsp;dB on kitchen and 0.27&nbsp;dB on bonsai.</p>
-  </div>
-
-  <h3>The same prior does nothing at the loss</h3>
-  <div class="prose">
-    <p>FreCo adds a frequency-domain term of the same kind to the photometric loss and leaves the densification rule
-       alone. On all nine scenes it stays level with the baseline. At its default weight it averages 28.13&nbsp;dB at
-       2.53M Gaussians, at twenty times that weight 28.18&nbsp;dB at 2.56M, and at eighty times it 28.16&nbsp;dB at
-       2.72M, against the baseline's 28.12&nbsp;dB at 2.53M. SSIM and LPIPS stay within 0.001 of the baseline's
-       throughout, while the count grows by 1% and 8%, so a stronger loss term adds Gaussians without adding quality. A
-       frequency prior works at the densification rule and not at the loss.</p>
-  </div>
-
-  <h3>Why the placement matters</h3>
-  <div class="prose">
-    <p>The reading that fits both results is that 3DGS lacks Gaussians where fine detail is missing, rather than being
-       steered away from that detail by the loss. Where too few Gaussians cover a region, a heavier loss weight only
-       pulls harder on Gaussians that cannot represent the detail, whereas densification can create ones that can. A
-       frequency prior is therefore effective where capacity is allocated. The account is supported but not settled. It
-       predicts that a loss-level prior stops being inert when Gaussians are scarce, and a first test of that
-       prediction, at a budget about fifteen times smaller on flowers, came out negative.</p>
-  </div>
-
-  <h3>A texture-tolerant metric confirms the per-scene picture</h3>
-  <div class="prose">
-    <p>DISTS scores texture by its feature statistics rather than by its pixel alignment, so it tolerates texture that
-       is right in kind but displaced. On the nine-scene mean SAD and the baseline are level, 0.0668 against 0.0674.
-       SAD is better by 19% on flowers and 12% on stump, the two scenes whose crops show recovered texture, within 4%
-       of the baseline on bicycle, counter, kitchen and bonsai, and worse by 8% to 12% on garden, treehill and room.
-       DISTS therefore confirms the per-scene reading of LPIPS and not a general advantage. FDS-GS is better than both
-       on every scene.</p>
-  </div>
-
-  <h3>Training time follows the converged count</h3>
-  <div class="prose">
-    <p>In paired runs on one A100, SAD's wall-clock training time tracks the size of the model it converges to, at 14%
-       less on bicycle (1280&nbsp;s against 1493&nbsp;s), 6% less on room (556 against 593), 6% more on garden (1452
-       against 1370) and 42% more on flowers (1520 against 1073), the one scene where SAD converges above the baseline
-       count. Computing the deficit costs less than the smaller population saves on most scenes.</p>
-  </div>
-
-  <h3>Raising the prune floor everywhere removes nothing</h3>
-  <div class="prose">
-    <p>Raising the baseline's opacity floor uniformly to two, four, eight and sixteen times its default leaves count and
-       quality where they were on flowers, at 21.83 to 21.92&nbsp;dB and 2.73M to 2.78M Gaussians against 21.91&nbsp;dB
-       at 2.76M, and so does a uniform floor at the 33 times the default that SAD applies to zero-deficit Gaussians,
-       which converges at 21.90&nbsp;dB and 2.72M. A floor that every Gaussian has to clear removes almost nothing at
-       any of these levels, so the reduction comes from the floor being raised over some Gaussians and not others.</p>
-  </div>
-
-  <h3>What this does not show</h3>
-  <div class="prose">
-    <p>Except where a table reports several seeds, every run uses a single seed. We do not read PSNR differences below
-       0.1 to 0.2&nbsp;dB as real in a nine-scene average, or below about 0.5&nbsp;dB on a single scene. The
-       configuration was tuned on flowers, so the other eight Mip-NeRF&nbsp;360 scenes are the cleaner evaluation. Over
-       those eight SAD averages 0.09&nbsp;dB below the baseline on PSNR, 0.004 above it on SSIM, level on LPIPS, and
-       31% fewer Gaussians, more than the nine-scene 25%.</p>
-    <p>On Tanks-and-Temples the count reduction is largely a side effect of the prune reading one view at a time.
-       Gaussians outside the current camera's view are treated as resolved and receive the highest floor, and
-       aggregating the deficit over eight views per pass restores the baseline's quality there and removes the
-       reduction. SAD is also not the strongest method in the comparison, since MCMC and FDS-GS reach higher quality at
-       their own counts, and at nearly matched count FDS-GS is ahead of SAD on every quality metric. The claim is an
-       improvement over the baseline at a smaller model size.</p>
+    <p><strong>Same count, different placement.</strong> A 3DGS baseline trimmed to SAD's Gaussian
+    count by an opacity cap matches SAD's PSNR (28.20 against 28.07&nbsp;dB), and SAD keeps the
+    better SSIM and LPIPS (0.842 against 0.836, 0.195 against 0.205). The frequency signal changes
+    where the Gaussians sit, not how many there are.</p>
+    <p><strong>The loss is the wrong place for the prior.</strong> The same frequency signal added
+    to the photometric loss (FreCo) leaves quality and count at the baseline on all nine scenes, at
+    its default weight and at 20 and 80 times that weight.</p>
+    <p><strong>Why.</strong> 3DGS lacks Gaussians where fine detail is missing. A loss term pulls
+    harder on Gaussians that cannot represent the detail; densification creates ones that can.</p>
+    <p><strong>Where it helps.</strong> The perceptual gains come from the textured outdoor scenes
+    (flowers, stump); indoors SAD costs PSNR. DISTS, a texture-tolerant metric, agrees scene by
+    scene. Training time follows the converged count, 14% faster on bicycle and 42% slower on
+    flowers.</p>
+    <p><strong>Caveats.</strong> Single seed. On Tanks and Temples the count reduction is largely a
+    side effect of the prune reading one view at a time. MCMC and FDS-GS reach higher quality at
+    their own counts.</p>
   </div>
 </section>
 

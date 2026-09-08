@@ -128,3 +128,32 @@ test("scene switch: the veil drops only after the panes are painted", async ({ p
   });
   expect(lum).toBeGreaterThan(15);
 });
+
+/* pixel-level guard: both panes carry a real frame after load, after a scene
+   switch and after a scrub (a blank or black pane has near-zero variance) */
+function paneStats(page) {
+  return page.evaluate(() => Array.from(document.querySelectorAll("#progress-explorer canvas")).map((c) => {
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let s = 0, s2 = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4 * 97) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3; s += v; s2 += v * v; n++; }
+    const m = s / n;
+    return { mean: m, sd: Math.sqrt(Math.max(0, s2 / n - m * m)) };
+  }));
+}
+
+test("both panes show a real frame after load, scene switch and scrub", async ({ page }) => {
+  const first = await paneStats(page);
+  expect(first).toHaveLength(2);
+  for (const s of first) expect(s.sd).toBeGreaterThan(10);
+  await page.locator(`${EXPLORER} button:has-text("bicycle")`).click();
+  await expect(page.locator(EXPLORER)).not.toHaveClass(/pe-loading/, { timeout: 30000 });
+  await expect.poll(async () => (await paneStats(page)).every((s) => s.sd > 10), { timeout: 15000 }).toBe(true);
+  const switched = await paneStats(page);
+  expect(Math.abs(switched[0].mean - first[0].mean) + Math.abs(switched[0].sd - first[0].sd)).toBeGreaterThan(1);
+  await setSlider(page, 10);
+  await expect(page.locator(`${EXPLORER} .pe-iter`)).toHaveText("iteration 30,000");
+  await expect.poll(async () => {
+    const s = await paneStats(page);
+    return s.every((x) => x.sd > 10) && Math.abs(s[0].sd - switched[0].sd) > 0.5;
+  }, { timeout: 15000 }).toBe(true);
+});
