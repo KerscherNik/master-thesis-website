@@ -118,3 +118,41 @@ describe("fly-through arena data", () => {
     expect(new Set(["sad", "gs", ...core.benchedMethods("sad", "gs")])).toEqual(new Set(all));
   });
 });
+
+describe("METHOD_QUADS: the 2x2 crop grid", () => {
+  it("gives every method its own cell and covers all four", () => {
+    const quads = core.METHOD_QUADS;
+    expect(Object.keys(quads).sort()).toEqual(Object.keys(core.FLY_METHODS).sort());
+    const cells = Object.values(quads).map(q => q.join(","));
+    expect(new Set(cells).size).toBe(4); // no method crops another's pixels
+    expect(new Set(cells)).toEqual(new Set(["0,0", "1,0", "0,1", "1,1"]));
+  });
+
+  it("cells stay inside the grid, so a crop never leaves the frame", () => {
+    for (const [m, q] of Object.entries(core.METHOD_QUADS)) {
+      expect(q, m).toHaveLength(2);
+      for (const c of q) expect([0, 1]).toContain(c);
+    }
+  });
+
+  it("SAD reads top-left and 3DGS top-right, the pair the ring opens on", () => {
+    expect(core.METHOD_QUADS.sad).toEqual([0, 0]);
+    expect(core.METHOD_QUADS.gs).toEqual([1, 0]);
+  });
+});
+
+describe("grid reel paths", () => {
+  it("one fly-through reel and one progress reel per scene, distinct", () => {
+    const fly = core.FLY_SCENES.map(core.gridPath);
+    expect(new Set(fly).size).toBe(core.FLY_SCENES.length);
+    expect(core.gridPath("flowers")).toBe("static/videos/grid/flygrid_flowers.mp4");
+    expect(core.progGridPath("flowers")).toBe("static/videos/grid/proggrid_flowers.mp4");
+    expect(fly).not.toContain(core.progGridPath("flowers"));
+  });
+
+  it("grid reels have no AV1 twin path collision with the flat videos", () => {
+    // av1Path only rewrites the directory prefix; grid reels keep their /grid/
+    expect(core.av1Path(core.gridPath("truck")))
+      .toBe("static/videos/av1/grid/flygrid_truck.mp4");
+  });
+});

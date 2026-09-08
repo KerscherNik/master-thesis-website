@@ -10,19 +10,19 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'sha256-pL9KEwHIUsWUVYysnBQMImvu23R5eBbO6wzLsoEdu9w='; img-src 'self'; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="description"
-        content="Spectral-Aware Densification (SAD): steering 3D Gaussian Splatting densification with a frequency-domain deficit signal. About 25% fewer Gaussians at matched quality on Mip-NeRF 360.">
+        content="Spectral-Aware Densification (SAD) steers 3D Gaussian Splatting densification with a frequency-domain deficit signal. It reaches the baseline's quality on Mip-NeRF 360 with about 25% fewer Gaussians and renders about 60% faster.">
   <!-- keep the page out of search engines while the thesis is unpublished;
        remove this line (and robots.txt) to make the page indexable -->
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#fcfcfa">
   <meta property="og:type" content="website">
   <meta property="og:title" content="A High-Frequency Perspective on 3D Gaussian Splatting">
-  <meta property="og:description" content="Spectral-Aware Densification (SAD): about 25% fewer Gaussians at matched quality on Mip-NeRF 360, steered by a frequency-domain deficit signal.">
+  <meta property="og:description" content="Spectral-Aware Densification (SAD) reaches the baseline's quality on Mip-NeRF 360 with about 25% fewer Gaussians and about 60% faster rendering, steered by a frequency-domain deficit signal.">
   <meta property="og:url" content="https://kerschernik.github.io/master-thesis-website/">
   <meta property="og:image" content="https://kerschernik.github.io/master-thesis-website/static/images/teaser/flowers_sad.jpg">
   <meta property="og:image:width" content="1256">
   <meta property="og:image:height" content="828">
-  <meta property="og:image:alt" content="Side-by-side rendering of the flowers scene: SAD versus 3DGS">
+  <meta property="og:image:alt" content="Side-by-side rendering of the flowers scene, SAD against 3DGS">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="manifest" href="manifest.webmanifest">
   <title>A High-Frequency Perspective on 3D Gaussian Splatting</title>
@@ -41,7 +41,7 @@
     <p class="loader-title">A High-Frequency Perspective<br>on 3D Gaussian Splatting</p>
     <div class="loader-bar"><div class="loader-fill"></div></div>
     <p class="loader-status">preparing renders&hellip;</p>
-    <button class="loader-skip" type="button">skip &mdash; load in background</button>
+    <button class="loader-skip" type="button">skip, load in background</button>
   </div>
 </div>
 <noscript><style>#loader{display:none}body.loading{overflow:auto}</style></noscript>
@@ -62,7 +62,7 @@
           d="M 0 14.0 L 2 13.2 L 3 12.4 L 5 11.5 L 6 10.7 L 8 9.9 L 10 9.0 L 11 8.2 L 13 7.5 L 15 6.7 L 16 6.0 L 18 5.4 L 19 4.8 L 21 4.3 L 23 3.8 L 24 3.5 L 26 3.2 L 28 3.0 L 29 3.0 L 31 3.1 L 32 3.3 L 34 3.6 L 36 4.0 L 37 4.6 L 39 5.3 L 41 6.1 L 42 7.1 L 44 8.1 L 45 9.3 L 47 10.5 L 49 11.8 L 50 13.2 L 52 14.6 L 54 15.9 L 55 17.3 L 57 18.7 L 58 19.9 L 60 21.1 L 62 22.2 L 63 23.1 L 65 23.9 L 66 24.5 L 68 24.8 L 70 25.0 L 71 24.9 L 73 24.6 L 75 24.0 L 76 23.3 L 78 22.2 L 79 21.0 L 81 19.6 L 83 18.1 L 84 16.4 L 86 14.6 L 88 12.8 L 89 11.1 L 91 9.4 L 92 7.8 L 94 6.3 L 96 5.1 L 97 4.1 L 99 3.4 L 101 3.1 L 102 3.0 L 104 3.4 L 105 4.0 L 107 5.1 L 109 6.4 L 110 8.0 L 112 9.8 L 114 11.8 L 115 13.9 L 117 16.0 L 118 18.1 L 120 20.0 L 122 21.7 L 123 23.1 L 125 24.2 L 126 24.8 L 128 25.0 L 130 24.7 L 131 24.0 L 133 22.8 L 135 21.2 L 136 19.3 L 138 17.1 L 139 14.8 L 141 12.4 L 143 10.1 L 144 7.9 L 146 6.0 L 148 4.5 L 149 3.5 L 151 3.0 L 152 3.1 L 154 3.8 L 156 5.0 L 157 6.8 L 159 8.9 L 161 11.4 L 162 14.0 L 164 16.6 L 165 19.1 L 167 21.3 L 169 23.1 L 170 24.4 L 172 25.0 L 174 24.9 L 175 24.1 L 177 22.6 L 178 20.6 L 180 18.1 L 182 15.4 L 183 12.5 L 185 9.7 L 186 7.2 L 188 5.1 L 190 3.7 L 191 3.0 L 193 3.2 L 195 4.1 L 196 5.8 L 198 8.1 L 199 10.9 L 201 13.9 L 203 17.0 L 204 19.9 L 206 22.3 L 208 24.0 L 209 24.9 L 211 24.9 L 212 24.0 L 214 22.2 L 216 19.7 L 217 16.7 L 219 13.4 L 221 10.2 L 222 7.3 L 224 5.0 L 225 3.5 L 227 3.0 L 229 3.6 L 230 5.1 L 232 7.5 L 234 10.6 L 235 14.0 L 237 17.5 L 238 20.6 L 240 23.0 L 242 24.6 L 243 25.0 L 245 24.3 L 246 22.5 L 248 19.7 L 250 16.4 L 251 12.7 L 253 9.2 L 255 6.2 L 256 4.1 L 258 3.1 L 259 3.3 L 261 4.8 L 263 7.4 L 264 10.8 L 266 14.6 L 268 18.3 L 269 21.5 L 271 23.8 L 272 24.9 L 274 24.7 L 276 23.0 L 277 20.2 L 279 16.6 L 281 12.7 L 282 8.9 L 284 5.7 L 285 3.7 L 287 3.0 L 289 3.8 L 290 6.1 L 292 9.4 L 294 13.4 L 295 17.5 L 297 21.2 L 298 23.8 L 300 24.9 L 302 24.5 L 303 22.6 L 305 19.3 L 306 15.3 L 308 11.0 L 310 7.2 L 311 4.4 L 313 3.1 L 315 3.5 L 316 5.5 L 318 9.0 L 319 13.2 L 321 17.6 L 323 21.4 L 324 24.0 L 326 25.0 L 328 24.1 L 329 21.5 L 331 17.6 L 332 13.1 L 334 8.7 L 336 5.2 L 337 3.3 L 339 3.2 L 341 5.1 L 342 8.5 L 344 13.0 L 345 17.7 L 347 21.7 L 349 24.3 L 350 25.0 L 352 23.6 L 354 20.4 L 355 16.0 L 357 11.1 L 358 6.8 L 360 3.9 L 362 3.0 L 363 4.2 L 365 7.4 L 366 12.0 L 368 16.9 L 370 21.3 L 371 24.2 L 373 25.0 L 375 23.5 L 376 20.0 L 378 15.2 L 379 10.2 L 381 5.9 L 383 3.4 L 384 3.2 L 386 5.4 L 388 9.4 L 389 14.5 L 391 19.5 L 392 23.3 L 394 25.0 L 396 24.1 L 397 20.9 L 399 16.2 L 401 10.8 L 402 6.3 L 404 3.5 L 405 3.2 L 407 5.5 L 409 9.9 L 410 15.3 L 412 20.4 L 414 23.9 L 415 25.0 L 417 23.3 L 418 19.4 L 420 14.0"/>
   </svg>
 
-  <p class="method-name"><strong>Spectral-Aware Densification (SAD)</strong>: a frequency-domain signal decides where Gaussians are added and which are removed.</p>
+  <p class="method-name"><strong>Spectral-Aware Densification (SAD)</strong> lets a frequency-domain signal decide where Gaussians are added and which are removed.</p>
 
   <p class="authors">Niklas Kerscher</p>
   <p class="affiliation">MSc thesis, Ludwig Maximilian University of Munich, in collaboration with the University of Cambridge</p>
@@ -93,11 +93,13 @@
     <picture><source type="image/avif" srcset="static/images/teaser/flowers_sad.avif"><img src="static/images/teaser/flowers_sad.jpg" fetchpriority="high" alt="SAD render of the Mip-NeRF 360 flowers test view" width="1256" height="828" decoding="async"></picture>
     <picture><source type="image/avif" srcset="static/images/teaser/flowers_3dgs.avif"><img src="static/images/teaser/flowers_3dgs.jpg" fetchpriority="high" alt="3DGS render of the same flowers test view" width="1256" height="828" decoding="async"></picture>
   </div>
-  <p class="caption">Held-out test view of <em>flowers</em> (Mip-NeRF&nbsp;360). Drag the bar: SAD recovers petal and grass
-     detail that the baseline blurs. On this scene SAD gains +0.29&nbsp;dB PSNR, +0.036 SSIM and &minus;0.060 LPIPS.</p>
-  <p class="takeaway">Averaged over the nine Mip-NeRF&nbsp;360 scenes, SAD uses <strong>25% fewer Gaussians</strong> than 3DGS
-     and renders <strong>60% faster</strong>, with better SSIM and LPIPS at a PSNR within 0.05&nbsp;dB of the baseline:
-     more reconstruction quality per Gaussian, not more quality in absolute terms.</p>
+  <p class="caption">Held-out test view of <em>flowers</em> (Mip-NeRF&nbsp;360). Drag the bar to see SAD recover petal and
+     grass detail that the baseline renders as a smooth surface. On this scene SAD gains 0.29&nbsp;dB PSNR, 0.036 SSIM
+     and 0.060 LPIPS, its largest perceptual margin of the benchmark, at a count above the baseline's.</p>
+  <p class="takeaway">Averaged over the nine Mip-NeRF&nbsp;360 scenes, SAD uses <strong>about 25% fewer Gaussians</strong>
+     than 3DGS and renders <strong>about 60% faster</strong>, with better SSIM and LPIPS at a PSNR 0.05&nbsp;dB below the
+     baseline, inside the run-to-run band. The contribution is efficiency, that is, more reconstruction quality per
+     Gaussian rather than more quality in absolute terms.</p>
 </section>
 
 <!-- ================= abstract ================= -->
@@ -110,19 +112,23 @@
        remains difficult, since adding more Gaussians recovers such detail only at the cost of a larger and slower
        model.</p>
     <p>This thesis asks at what point in the training process a signal indicating missing high-frequency detail should
-       be applied. We test the two most direct entry points: the photometric loss, which measures the rendering error,
-       and the densification rule, which decides where Gaussians are added and removed during training. In the settings
-       we tested, the signal is effective only when it is applied at the densification rule. Our method,
+       be applied. We test the two most direct entry points, namely the photometric loss, which measures the rendering
+       error, and the densification rule, which decides where Gaussians are added and removed during training. In the
+       settings we tested, the signal is effective only when it is applied at the densification rule. Our method,
        Spectral-Aware Densification (SAD), compares the render and the training image in the frequency domain and
-       measures where high-frequency detail is missing. This signal then decides
-       where new Gaussians are placed and which existing ones are removed.</p>
-    <p>On the nine scenes of the Mip-NeRF&nbsp;360 benchmark, SAD uses on average about 25% fewer Gaussians than
-       standard 3DGS, improves SSIM and LPIPS, and renders about 60% faster, at an average PSNR at most 0.05&nbsp;dB
-       below the baseline. On two further benchmarks, Tanks-and-Temples and Deep Blending, the count reduction carries
-       over without retuning, though at some cost in the perceptual metrics relative to the baseline. A second
-       configuration that removes Gaussians less aggressively surpasses the baseline on all three image metrics on
-       Mip-NeRF&nbsp;360 and Tanks-and-Temples, at a Gaussian count above the baseline's. The contribution is
-       efficiency: more reconstruction quality per Gaussian.</p>
+       measures where high-frequency detail is missing. That signal then determines both densification decisions,
+       namely where new Gaussians are placed and which existing ones are removed.</p>
+    <p>On the nine scenes of the Mip-NeRF&nbsp;360 benchmark, SAD matches the reconstruction quality of the unmodified
+       3DGS baseline with about 25% fewer Gaussians and renders about 60% faster. Averaged over the benchmark it
+       improves SSIM and LPIPS, with the largest LPIPS gain on the most textured scene and parity on the others, while
+       the average PSNR lies 0.05&nbsp;dB below the baseline, within the variation between training runs.</p>
+    <p>On Deep Blending the reduction in Gaussian count carries over. On Tanks-and-Temples it is largely a side effect
+       of the removal rule reading one view at a time, and on both datasets SSIM and LPIPS stay below the baseline's. A
+       baseline trimmed to the same count by an opacity cap matches SAD's PSNR but not its SSIM and LPIPS, so the gain
+       from the frequency signal lies in where the Gaussians are placed. A second configuration that removes Gaussians
+       less aggressively surpasses the baseline on all three image metrics on Mip-NeRF&nbsp;360 and Tanks-and-Temples,
+       at a higher Gaussian count. The contribution is therefore one of efficiency, that is, more reconstruction
+       quality per Gaussian.</p>
   </div>
 </section>
 
@@ -130,13 +136,17 @@
 <section class="container">
   <h2>Method</h2>
   <div class="prose narrow centered">
-    <p>During training, SAD compares each render against its training image in the frequency domain: both are cut into
-       overlapping patches, transformed with a windowed FFT, and the shortfall of high-frequency energy in the render
-       is aggregated into a per-pixel <em>spectral deficit</em> map. The deficit replaces the gradient heuristic on both
-       sides of adaptive density control: Gaussians participating in high-deficit regions are cloned and split, and the
-       usual opacity pruning is weighted so that primitives supporting deficit regions are kept while inconspicuous
-       ones are removed. Nothing else in the training pipeline changes: SAD replaces the signal that adaptive
-       density control reads, and everything downstream follows from that.</p>
+    <p>During training, SAD compares each render against its training image in the frequency domain. Both are cut into
+       overlapping patches and transformed with a windowed FFT, and the shortfall of high-frequency energy in the
+       render is collected into a per-pixel <em>spectral deficit</em> map. Each Gaussian reads that map at the pixel its
+       projected centre falls in, which gives it a deficit between zero and one, and the pass uses only the single view
+       rendered at that iteration.</p>
+    <p>The deficit then modulates the two thresholds of adaptive density control. It lowers the gradient threshold that
+       triggers cloning and splitting where high-frequency detail is missing, so new Gaussians are created there, and
+       it raises the opacity floor for removal where the detail is already resolved, so Gaussians that support no
+       missing detail are pruned. A Gaussian with zero deficit keeps the baseline trigger and receives the highest
+       floor. The loss and the rasteriser are unchanged, so the method modifies only the two thresholds and everything
+       else follows from that.</p>
   </div>
   <div class="method-strip">
     <figure>
@@ -152,12 +162,12 @@
     <figure>
       <span class="step">3</span>
       <picture><source type="image/avif" srcset="static/images/method/residual.avif"><img src="static/images/method/residual.jpg" alt="Per-pixel residual heatmap" width="966" height="966" loading="lazy" decoding="async"></picture>
-      <figcaption>Pixel residual &mdash; flat where blur hides</figcaption>
+      <figcaption>Pixel residual, flat where blur hides</figcaption>
     </figure>
     <figure class="deficit">
       <span class="step">4</span>
       <picture><source type="image/avif" srcset="static/images/method/deficit.avif"><img src="static/images/method/deficit.jpg" alt="Windowed-Fourier high-frequency deficit heatmap" width="966" height="966" loading="lazy" decoding="async"></picture>
-      <figcaption>Spectral deficit &mdash; missing high frequencies light up</figcaption>
+      <figcaption>Spectral deficit, missing high frequencies light up</figcaption>
     </figure>
     <figure>
       <span class="step">5</span>
@@ -165,9 +175,9 @@
       <figcaption>Densify + prune by deficit</figcaption>
     </figure>
   </div>
-  <p class="caption">A foliage crop from <em>flowers</em>. The pixel residual (step&nbsp;3) barely reacts to blurred
-     texture; the frequency-domain deficit (step&nbsp;4) localises it, and drives where Gaussians are added and which
-     are pruned.</p>
+  <p class="caption">A foliage crop from <em>flowers</em>. The pixel residual (step&nbsp;3) barely reacts to texture that
+     the render has smoothed away, while the frequency-domain deficit (step&nbsp;4) locates it and drives where
+     Gaussians are added and which are pruned.</p>
 </section>
 
 <!-- ================= results ================= -->
@@ -200,100 +210,121 @@
           <td>3DGS-MCMC <span class="unit">(count is a configured cap)</span></td>
           <td>28.69</td><td>0.853</td><td>0.171</td><td>3.40</td><td>220</td>
         </tr>
+        <tr>
+          <td>FDS-GS</td>
+          <td>28.50</td><td>0.854</td><td>0.162</td><td>2.09</td><td>155</td>
+        </tr>
+        <tr>
+          <td>FreCo <span class="unit">(same prior at the loss, default weight)</span></td>
+          <td>28.13</td><td>0.835</td><td>0.201</td><td>2.53</td><td>&ndash;</td>
+        </tr>
         <tr class="rule">
           <td colspan="6" class="row-note"><span class="unit">Tanks &amp; Temples (2 scenes) and Deep Blending (2 scenes), same configuration, no retuning:</span></td>
         </tr>
         <tr class="ours">
-          <td>SAD (ours) &mdash; T&amp;T</td>
+          <td>SAD (ours), T&amp;T</td>
           <td>23.62</td><td>0.844</td><td>0.230</td><td class="best">1.23</td><td>&ndash;</td>
         </tr>
         <tr>
-          <td>3DGS &mdash; T&amp;T</td>
+          <td>3DGS, T&amp;T</td>
           <td class="best">23.80</td><td class="best">0.853</td><td class="best">0.206</td><td>1.58</td><td>&ndash;</td>
         </tr>
         <tr class="ours">
-          <td>SAD (ours) &mdash; DB</td>
+          <td>SAD (ours), DB</td>
           <td>29.72</td><td>0.906</td><td>0.337</td><td class="best">0.84</td><td>&ndash;</td>
         </tr>
         <tr>
-          <td>3DGS &mdash; DB</td>
+          <td>3DGS, DB</td>
           <td class="best">29.99</td><td class="best">0.908</td><td class="best">0.312</td><td>2.48</td><td>&ndash;</td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p class="caption">All rows trained under our pipeline: single seed, resolution factor 4, LPIPS with a VGG backbone,
-     FPS as 1000 / mean render time. Bold marks the better of SAD and its 3DGS baseline in each block; on the nine-scene average, MCMC leads the field on quality at the largest count. The count reduction
-     transfers to Tanks&nbsp;&amp;&nbsp;Temples and Deep Blending; the perceptual metrics there do not.</p>
+  <p class="caption">All rows are trained under our pipeline at a single seed and resolution factor 4, with LPIPS on a
+     VGG backbone and FPS as 1000 / mean render time. Bold marks the better of SAD and its 3DGS baseline in each block,
+     not the best of the column. SAD is not the strongest method here. MCMC has the best PSNR at the largest count, and
+     FDS-GS is ahead on every quality metric at 2.09M, only 9% above SAD's count, so that pairing is the one the budget
+     does not confound. FreCo places the same frequency signal in the photometric loss and stays at the baseline. The
+     count reduction transfers to Tanks&nbsp;&amp;&nbsp;Temples and Deep Blending, while the perceptual metrics there
+     do not, and on Tanks&nbsp;&amp;&nbsp;Temples the reduction is largely a side effect of the prune reading one view
+     at a time.</p>
 
-  <h3>Same view, same training data &mdash; drag to compare</h3>
+  <h3>Same view, same training data, drag to compare</h3>
   <p class="caption left">Detail crops of held-out test views across all three benchmarks (Mip-NeRF&nbsp;360,
-     Tanks&nbsp;&amp;&nbsp;Temples, Deep Blending), chosen where the baseline's error most exceeds SAD's
-     (the thesis' criterion); PSNR numbers are full-image averages.</p>
+     Tanks&nbsp;&amp;&nbsp;Temples, Deep Blending), each chosen by searching for the region where the two renders
+     differ most and the baseline's error exceeds SAD's, the criterion the thesis uses. These crops are where the SSIM
+     and LPIPS margins come from. The PSNR numbers are full-image averages, so a large difference over a small share of
+     the pixels moves them little.</p>
   <div class="compare-stack grid">
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <picture><source type="image/avif" srcset="static/images/comparisons/flowers_sad.avif"><img src="static/images/comparisons/flowers_sad.jpg" alt="SAD render, flowers test view, petal and grass crop" width="880" height="700" loading="lazy" decoding="async"></picture>
         <picture><source type="image/avif" srcset="static/images/comparisons/flowers_3dgs.avif"><img src="static/images/comparisons/flowers_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
-      <figcaption class="caption"><em>flowers</em> (360), petals and grass &mdash; SAD 3.40M vs 3DGS 2.75M
-        Gaussians, +0.29&nbsp;dB PSNR.</figcaption>
+      <figcaption class="caption"><em>flowers</em> (360), petals and grass. SAD 3.40M against 3DGS 2.76M Gaussians,
+        0.29&nbsp;dB more PSNR, 0.060 lower LPIPS. The one scene where SAD converges above the baseline count.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <picture><source type="image/avif" srcset="static/images/comparisons/bicycle_sad.avif"><img src="static/images/comparisons/bicycle_sad.jpg" alt="SAD render, bicycle test view, front wheel and grass crop" width="880" height="700" loading="lazy" decoding="async"></picture>
         <picture><source type="image/avif" srcset="static/images/comparisons/bicycle_3dgs.avif"><img src="static/images/comparisons/bicycle_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
-      <figcaption class="caption"><em>bicycle</em> (360), front wheel and grass &mdash; 64% of the count,
-        +0.06&nbsp;dB PSNR.</figcaption>
+      <figcaption class="caption"><em>bicycle</em> (360), front wheel and grass. SAD 2.95M against 3DGS 4.63M Gaussians
+        (64%), 0.06&nbsp;dB more PSNR. Both keep the spokes and the bench and differ in the grass around them.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <picture><source type="image/avif" srcset="static/images/comparisons/garden_sad.avif"><img src="static/images/comparisons/garden_sad.jpg" alt="SAD render, garden test view, bark and foliage crop" width="880" height="700" loading="lazy" decoding="async"></picture>
         <picture><source type="image/avif" srcset="static/images/comparisons/garden_3dgs.avif"><img src="static/images/comparisons/garden_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
-      <figcaption class="caption"><em>garden</em> (360), bark and wood grain &mdash; 75% of the count,
-        &minus;0.12&nbsp;dB PSNR.</figcaption>
+      <figcaption class="caption"><em>garden</em> (360), bark and wood grain. SAD 2.75M against 3DGS 3.66M Gaussians
+        (75%), 0.12&nbsp;dB less PSNR, inside the single-scene noise band of about 0.5&nbsp;dB.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <picture><source type="image/avif" srcset="static/images/comparisons/stump_sad.avif"><img src="static/images/comparisons/stump_sad.jpg" alt="SAD render, stump test view, ivy crop" width="880" height="700" loading="lazy" decoding="async"></picture>
         <picture><source type="image/avif" srcset="static/images/comparisons/stump_3dgs.avif"><img src="static/images/comparisons/stump_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
-      <figcaption class="caption"><em>stump</em> (360), ivy and twigs &mdash; 69% of the count,
-        +0.47&nbsp;dB PSNR.</figcaption>
+      <figcaption class="caption"><em>stump</em> (360), ivy and twigs. SAD 2.88M against 3DGS 4.20M Gaussians (69%),
+        0.47&nbsp;dB more PSNR, 0.026 lower LPIPS.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <picture><source type="image/avif" srcset="static/images/comparisons/truck_sad.avif"><img src="static/images/comparisons/truck_sad.jpg" alt="SAD render, truck test view crop" width="880" height="700" loading="lazy" decoding="async"></picture>
         <picture><source type="image/avif" srcset="static/images/comparisons/truck_3dgs.avif"><img src="static/images/comparisons/truck_3dgs.jpg" alt="3DGS render, same crop" width="880" height="700" loading="lazy" decoding="async"></picture>
       </div>
-      <figcaption class="caption"><em>truck</em> (Tanks&nbsp;&amp;&nbsp;Temples) &mdash; SAD 1.72M vs 3DGS 2.06M
-        Gaussians (83%), same configuration, no retuning.</figcaption>
+      <figcaption class="caption"><em>truck</em> (Tanks&nbsp;&amp;&nbsp;Temples). SAD 1.72M against 3DGS 2.06M
+        Gaussians (83%), same configuration, no retuning. PSNR is level here while LPIPS is 0.021 worse.</figcaption>
     </figure>
     <figure>
       <div class="ba-compare" data-label-a="SAD" data-label-b="3DGS">
         <picture><source type="image/avif" srcset="static/images/comparisons/drjohnson_sad.avif"><img src="static/images/comparisons/drjohnson_sad.jpg" alt="SAD render, Dr Johnson test view crop" width="1520" height="1200" loading="lazy" decoding="async"></picture>
         <picture><source type="image/avif" srcset="static/images/comparisons/drjohnson_3dgs.avif"><img src="static/images/comparisons/drjohnson_3dgs.jpg" alt="3DGS render, same crop" width="1520" height="1200" loading="lazy" decoding="async"></picture>
       </div>
-      <figcaption class="caption"><em>drjohnson</em> (Deep Blending) &mdash; SAD holds the scene with 1.01M vs
-        3DGS 3.12M Gaussians (32%), trading some sharpness; no retuning.</figcaption>
+      <figcaption class="caption"><em>drjohnson</em> (Deep Blending). SAD holds the scene with 1.01M against 3DGS 3.12M
+        Gaussians (32%) and no retuning, at 0.52&nbsp;dB less PSNR and 0.032 worse LPIPS, the largest LPIPS gap of the
+        thirteen scenes.</figcaption>
     </figure>
   </div>
 
   <h3>Where the Gaussians go</h3>
   <div class="figure-block">
     <picture><source type="image/avif" srcset="static/images/results/density_map.avif"><img src="static/images/results/density_map.png"
-         alt="Projected primitive density of 3DGS, SAD, MCMC and FDS-GS on a flowers held-out view" width="2049" height="887" loading="lazy" decoding="async"></picture>
+         alt="Six panels on a held-out flowers view. The top row shows the view itself and then the Gaussian density of 3DGS and of SAD on one logarithmic scale, where the lawn is nearly empty for 3DGS and populated for SAD. The bottom row shows the density of SAD, MCMC and FDS-GS relative to 3DGS, all three red over the lawn and blue over the trees and sky." width="2049" height="887" loading="lazy" decoding="async"></picture>
   </div>
-  <p class="caption">Projected density of the converged primitives on a <em>flowers</em> held-out view. SAD shifts its
-     budget into the high-frequency flower bed and thins the smooth lawn and background; the relative maps (bottom)
-     show the same reallocation pattern in MCMC and FDS-GS, which reach it by other routes.</p>
+  <p class="caption">Where each converged model places its Gaussians on a held-out <em>flowers</em> view. The top row
+     shows the view itself and the density of 3DGS and SAD on one shared logarithmic scale, the bottom row the density
+     of SAD, MCMC and FDS-GS relative to 3DGS, which normalises away the different totals. All three concentrate Gaussians on the lawn that
+     3DGS leaves nearly empty, at aggregate lawn shares of 0.005% for 3DGS, 0.13% for MCMC, 0.32% for SAD and 1.66% for
+     FDS-GS, while the trees and the sky lose share. This is the capacity behind the recovered lawn texture in the
+     crops above. Three unrelated signals reach the same placement.</p>
 
   <h3>Fly-throughs</h3>
-  <p class="caption left">Camera-path renders of the converged models (elliptical path through the training cameras),
-     every method on the same path. Drag the divider to compare the two methods in the ring; drag a tile from the
-     bench onto either side to swap that method in &mdash; the replaced one drops back to the bench.</p>
+  <p class="caption left">Camera-path renders of the converged models from the table above, on an elliptical path
+     through the training cameras, with every method on the same path. On the indoor scenes the methods are close to
+     indistinguishable at full-frame scale, and the differences that do appear sit in the high-frequency regions the
+     deficit map targets. Drag the divider to compare the two methods in the ring, and drag a tile from the bench onto
+     either side to swap that method in, which drops the replaced one back to the bench.</p>
   <div class="flythrough-arena" id="flythrough-arena">
     <div class="fa-stage">
       <div class="fa-head">
@@ -319,7 +350,7 @@
         <div class="fa-drop right" data-side="b"><span>replace <b class="fa-drop-name"></b></span></div>
       </div>
       <div class="fa-benchrow">
-        <span class="fa-bench-hint"><span class="hint-drag">bench &mdash; drag a method onto the comparison</span><span class="hint-tap">bench &mdash; use a tile's arrows to swap methods</span></span>
+        <span class="fa-bench-hint"><span class="hint-drag">bench, drag a method onto the comparison</span><span class="hint-tap">bench, use a tile's arrows to swap methods</span></span>
         <div class="fa-bench"><!-- one tile per benched method, built by compare.js --></div>
       </div>
     </div>
@@ -328,9 +359,10 @@
   <h3>Training progress</h3>
   <p class="caption left">A fixed held-out view rendered at each saved checkpoint between 500 and 30,000 iterations,
      one scene per benchmark family (Mip-NeRF&nbsp;360: <em>flowers</em>, <em>bicycle</em>; Tanks&nbsp;&amp;&nbsp;Temples:
-     <em>truck</em>; Deep Blending: <em>drjohnson</em>). Pick a scene, then scrub the timeline (or press play) to step
-     SAD and 3DGS through the <em>same</em> training iterations side by side; the overlay in each frame gives the exact
-     iteration and Gaussian count.</p>
+     <em>truck</em>; Deep Blending: <em>drjohnson</em>). Pick a scene, then scrub the timeline or press play to step
+     SAD and 3DGS through the <em>same</em> training iterations side by side, with the overlay in each frame giving the
+     exact iteration and Gaussian count. The fine detail accumulates only over the full schedule, and the two counts
+     separate once densification is under way and freeze when it stops at 15,000 iterations.</p>
   <div class="progress-explorer" id="progress-explorer">
     <div class="pe-head">
       <div class="pe-tabs" role="tablist" aria-label="Scene">
@@ -367,12 +399,93 @@
 
   <h3>Quality against model size</h3>
   <div class="figure-block">
-    <picture><source type="image/avif" srcset="static/images/results/pareto.avif"><img src="static/images/results/pareto.png" alt="Pareto plot of PSNR against Gaussian count for SAD, 3DGS and related methods" width="1255" height="576" loading="lazy" decoding="async"></picture>
+    <picture><source type="image/avif" srcset="static/images/results/pareto.avif"><img src="static/images/results/pareto.png" alt="Two scatter plots against Gaussian count, PSNR on the left and LPIPS on the right, with SAD marked among 3DGS, MCMC, FDS-GS and the other methods, and the Pareto frontier drawn in each" width="1255" height="576" loading="lazy" decoding="async"></picture>
   </div>
-  <p class="caption">PSNR and LPIPS against primitive count, nine-scene Mip-NeRF&nbsp;360 averages, all methods under
-     our pipeline. SAD sits left of its 3DGS baseline at near-identical PSNR and better LPIPS; MCMC and FDS-GS reach
-     higher quality at larger models. A second SAD configuration that prunes less aggressively surpasses the baseline
-     on all three image metrics at a count above the baseline's.</p>
+  <p class="caption">PSNR and LPIPS against Gaussian count, nine-scene Mip-NeRF&nbsp;360 averages, all methods under our
+     pipeline, each at its own converged configuration and MCMC at its configured cap. SAD sits left of its 3DGS
+     baseline with lower LPIPS and with PSNR inside the noise band. It lies on the LPIPS front, between
+     Mini-Splatting-ms and FDS-GS, and, computed from the table above, on the SSIM front as well, since no method
+     reaches its 0.842 average at a lower count. It lies inside the PSNR front, which Mini-Splatting-ms and Taming-3DGS
+     form at the low-count end and FDS-GS and MCMC at the high-quality end. A second SAD configuration that prunes less aggressively reaches 28.28&nbsp;dB, 0.847
+     SSIM and 0.174 LPIPS at 4.03M, above the baseline on all three image metrics at a count above the baseline's.</p>
+</section>
+
+<!-- ================= findings ================= -->
+<section class="container narrow">
+  <h2>What we found</h2>
+
+  <h3>The count reduction is available without the frequency signal</h3>
+  <div class="prose">
+    <p>We trained the baseline with a hard cap at SAD's converged count on each scene, removing the lowest-opacity
+       Gaussians above the cap after every densification pass. Over the nine scenes the capped baseline reaches
+       28.20&nbsp;dB, which is SAD's PSNR and 0.13&nbsp;dB more, while SAD keeps the better SSIM (0.842 against 0.836)
+       and LPIPS (0.195 against 0.205). The reduction in count is therefore available from an opacity cap alone. What
+       the frequency signal adds at the same count is where the Gaussians sit, which shows on the textured outdoor
+       scenes, where SAD is ahead on all three metrics on stump and flowers, and costs PSNR indoors, by 0.54&nbsp;dB on
+       room, 0.60&nbsp;dB on kitchen and 0.27&nbsp;dB on bonsai.</p>
+  </div>
+
+  <h3>The same prior does nothing at the loss</h3>
+  <div class="prose">
+    <p>FreCo adds a frequency-domain term of the same kind to the photometric loss and leaves the densification rule
+       alone. On all nine scenes it stays level with the baseline. At its default weight it averages 28.13&nbsp;dB at
+       2.53M Gaussians, at twenty times that weight 28.18&nbsp;dB at 2.56M, and at eighty times it 28.16&nbsp;dB at
+       2.72M, against the baseline's 28.12&nbsp;dB at 2.53M. SSIM and LPIPS stay within 0.001 of the baseline's
+       throughout, while the count grows by 1% and 8%, so a stronger loss term adds Gaussians without adding quality. A
+       frequency prior works at the densification rule and not at the loss.</p>
+  </div>
+
+  <h3>Why the placement matters</h3>
+  <div class="prose">
+    <p>The reading that fits both results is that 3DGS lacks Gaussians where fine detail is missing, rather than being
+       steered away from that detail by the loss. Where too few Gaussians cover a region, a heavier loss weight only
+       pulls harder on Gaussians that cannot represent the detail, whereas densification can create ones that can. A
+       frequency prior is therefore effective where capacity is allocated. The account is supported but not settled. It
+       predicts that a loss-level prior stops being inert when Gaussians are scarce, and a first test of that
+       prediction, at a budget about fifteen times smaller on flowers, came out negative.</p>
+  </div>
+
+  <h3>A texture-tolerant metric confirms the per-scene picture</h3>
+  <div class="prose">
+    <p>DISTS scores texture by its feature statistics rather than by its pixel alignment, so it tolerates texture that
+       is right in kind but displaced. On the nine-scene mean SAD and the baseline are level, 0.0668 against 0.0674.
+       SAD is better by 19% on flowers and 12% on stump, the two scenes whose crops show recovered texture, within 4%
+       of the baseline on bicycle, counter, kitchen and bonsai, and worse by 8% to 12% on garden, treehill and room.
+       DISTS therefore confirms the per-scene reading of LPIPS and not a general advantage. FDS-GS is better than both
+       on every scene.</p>
+  </div>
+
+  <h3>Training time follows the converged count</h3>
+  <div class="prose">
+    <p>In paired runs on one A100, SAD's wall-clock training time tracks the size of the model it converges to, at 14%
+       less on bicycle (1280&nbsp;s against 1493&nbsp;s), 6% less on room (556 against 593), 6% more on garden (1452
+       against 1370) and 42% more on flowers (1520 against 1073), the one scene where SAD converges above the baseline
+       count. Computing the deficit costs less than the smaller population saves on most scenes.</p>
+  </div>
+
+  <h3>Raising the prune floor everywhere removes nothing</h3>
+  <div class="prose">
+    <p>Raising the baseline's opacity floor uniformly to two, four, eight and sixteen times its default leaves count and
+       quality where they were on flowers, at 21.83 to 21.92&nbsp;dB and 2.73M to 2.78M Gaussians against 21.91&nbsp;dB
+       at 2.76M, and so does a uniform floor at the 33 times the default that SAD applies to zero-deficit Gaussians,
+       which converges at 21.90&nbsp;dB and 2.72M. A floor that every Gaussian has to clear removes almost nothing at
+       any of these levels, so the reduction comes from the floor being raised over some Gaussians and not others.</p>
+  </div>
+
+  <h3>What this does not show</h3>
+  <div class="prose">
+    <p>Except where a table reports several seeds, every run uses a single seed. We do not read PSNR differences below
+       0.1 to 0.2&nbsp;dB as real in a nine-scene average, or below about 0.5&nbsp;dB on a single scene. The
+       configuration was tuned on flowers, so the other eight Mip-NeRF&nbsp;360 scenes are the cleaner evaluation. Over
+       those eight SAD averages 0.09&nbsp;dB below the baseline on PSNR, 0.004 above it on SSIM, level on LPIPS, and
+       31% fewer Gaussians, more than the nine-scene 25%.</p>
+    <p>On Tanks-and-Temples the count reduction is largely a side effect of the prune reading one view at a time.
+       Gaussians outside the current camera's view are treated as resolved and receive the highest floor, and
+       aggregating the deficit over eight views per pass restores the baseline's quality there and removes the
+       reduction. SAD is also not the strongest method in the comparison, since MCMC and FDS-GS reach higher quality at
+       their own counts, and at nearly matched count FDS-GS is ahead of SAD on every quality metric. The claim is an
+       improvement over the baseline at a smaller model size.</p>
+  </div>
 </section>
 
 <!-- ================= bibtex ================= -->
@@ -395,7 +508,7 @@
        (<a href="https://github.com/nerfies/nerfies.github.io">source</a>), licensed under a
        <a href="https://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0
        International License</a>, and reuses its layout with self-contained CSS and JavaScript.</p>
-    <p class="footer-a11y">Accessibility: this page targets WCAG&nbsp;2.2&nbsp;AA &mdash; keyboard operation,
+    <p class="footer-a11y">Accessibility. This page targets WCAG&nbsp;2.2&nbsp;AA with keyboard operation,
        screen-reader labels, reduced-motion and high-contrast support. Found a barrier?
        <a href="https://github.com/KerscherNik/master-thesis-website/issues">Open an issue</a>.</p>
     <p>Renders use the <a href="https://jonbarron.info/mipnerf360/">Mip-NeRF&nbsp;360</a> scenes and build on the

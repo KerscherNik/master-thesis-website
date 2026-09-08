@@ -3,7 +3,9 @@
 Project page for the MSc thesis on SAD (Spectral-Aware Densification).
 SAD steers 3D Gaussian Splatting densification with a frequency-domain
 deficit signal and reaches matched quality on Mip-NeRF 360 with about
-25% fewer Gaussians.
+25% fewer Gaussians and about 60% faster rendering. The page text and
+every number on it follow the final thesis, with the numbers taken from
+the tables in its `tables/` directory.
 
 Live site: https://kerschernik.github.io/master-thesis-website/
 
@@ -30,8 +32,9 @@ robots meta line in `index.html` (marked with a comment) and delete
 2. Teaser: the flowers test view, SAD vs 3DGS behind a draggable
    comparison slider.
 3. Abstract and the five-step method strip.
-4. Results table: Mip-NeRF 360 averages plus Tanks & Temples and
-   Deep Blending.
+4. Results table: Mip-NeRF 360 nine-scene averages for SAD, 3DGS,
+   MCMC, FDS-GS and FreCo, plus the Tanks & Temples and Deep Blending
+   rows.
 5. Comparison grid: six detail-crop sliders, one per scene across the
    three benchmarks. `copy_assets.py` picks each crop where the visible
    SAD-vs-3DGS difference is largest among regions where SAD also beats
@@ -47,7 +50,15 @@ robots meta line in `index.html` (marked with a comment) and delete
 8. Training progress: SAD and 3DGS side by side, stepped through 11
    checkpoints (500 to 30,000 iterations) by a timeline scrubber, for
    four scenes.
-9. Pareto plot, BibTeX, footer.
+9. Pareto plot.
+10. "What we found": the matched-count control, the null result for the
+    loss-level prior FreCo at three weights, the capacity reading that
+    explains both, DISTS, training time against converged count, the
+    uniform prune-floor control, and a "what this does not show"
+    subsection carrying the thesis' hedges (single seed, noise bands,
+    the flowers tuning scene, the Tanks & Temples off-screen effect,
+    MCMC and FDS-GS reaching higher quality).
+11. BibTeX, footer.
 
 ## Repository layout
 

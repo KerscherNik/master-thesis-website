@@ -129,3 +129,42 @@ describe("fly-through arena contract", () => {
     expect(tabs).toEqual(core.FLY_SCENES);
   });
 });
+
+describe("quad crop geometry", () => {
+  // The 2x2 reel is cropped by three places that each hard-code the quad
+  // aspect: the canvas element, the tile box, and the painter. They must
+  // agree, or a scene switch silently letterboxes one surface.
+  const css = readFileSync(resolve(ROOT, "static/css/index.css"), "utf8");
+  const js = readFileSync(resolve(ROOT, "static/js/compare.js"), "utf8");
+
+  it("the wipe canvas, the tile box and the painter share one aspect ratio", () => {
+    const tag = html.match(/<canvas[^>]*class="fa-wipe"[^>]*>/);
+    expect(tag, "index.html must keep a canvas.fa-wipe").not.toBeNull();
+    const w = tag[0].match(/width="(\d+)"/), h = tag[0].match(/height="(\d+)"/);
+    expect(w, "canvas.fa-wipe needs width/height attributes").not.toBeNull();
+    expect(h).not.toBeNull();
+    const fromCanvas = +w[1] / +h[1];
+
+    const tile = css.match(/\.fa-tile-media\s*\{[^}]*aspect-ratio:\s*(\d+)\s*\/\s*(\d+)/);
+    expect(tile).not.toBeNull();
+    const fromCss = +tile[1] / +tile[2];
+
+    const painted = [...js.matchAll(/\*\s*(\d+)\s*\/\s*(\d+)\s*\)?;?\s*(?:\}|\n)/g)]
+      .map(m => +m[1] / +m[2]);
+    expect(painted).toContain(630 / 956); // the painter's h = w * 630/956
+
+    // the CSS box is written as 1256/828 and the canvas as 956/630: the same
+    // ratio to 0.04%, which is below a pixel at the 104 px the tile is drawn
+    expect(fromCanvas).toBeCloseTo(fromCss, 2);
+    expect(fromCanvas).toBeCloseTo(1 / (630 / 956), 3);
+  });
+
+  it("the progress panes declare the aspect of the reel half they crop", () => {
+    // ar is "<half width> / <height>" of the scene's proggrid reel
+    for (const [scene, cfg] of Object.entries(core.PROGRESS_SCENES)) {
+      const m = cfg.ar.match(/^(\d+) \/ (\d+)$/);
+      expect(m, scene).not.toBeNull();
+      expect(+m[1]).toBeGreaterThan(+m[2]); // landscape, always
+    }
+  });
+});

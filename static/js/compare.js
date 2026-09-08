@@ -1020,7 +1020,12 @@
        slow phones responsive (paint cost measured, ticks dropped). */
     var lastPaintT = -1, dirty = true;
     var paintCost = 0, skipLeft = 0;
-    function requestRepaint() { dirty = true; }
+    /* an explicit repaint request follows a state change (swap, seek, resize,
+       reveal), and nothing else will repaint while the reel is paused - so it
+       carries the tiles with it. The third-of-the-rate tile budget applies to
+       continuous playback, where the time gate drives the loop. */
+    var forceAll = true;
+    function requestRepaint() { dirty = true; forceAll = true; }
     function loop() {
       var t = reel.currentTime;
       if ((dirty || t !== lastPaintT) && reel.readyState >= 2) {
@@ -1028,9 +1033,10 @@
           skipLeft -= 1;
         } else {
           var t0 = performance.now();
-          paintAll();
+          paintAll(forceAll);
           lastPaintT = t;
           dirty = false;
+          forceAll = false;
           paintCost = 0.8 * paintCost + 0.2 * (performance.now() - t0);
           skipLeft = paintCost > 24 ? 2 : (paintCost > 12 ? 1 : 0);
         }
@@ -1044,6 +1050,11 @@
       setTimeout(function () { requestRepaint(); }, 90);
     }
     reel.addEventListener("seeked", paintSoon);
+    /* a resize, an orientation change or a move to a screen with another
+       devicePixelRatio invalidates every canvas raster size. While the reel
+       is paused the time gate never fires, so without this the wipe and the
+       tiles stay at the old resolution, stretched by CSS. */
+    window.addEventListener("resize", paintSoon);
 
     /* ---- slider chrome (canvas-backed port of the DOM wipe) ---- */
     var divider = document.createElement("div");
@@ -1122,7 +1133,7 @@
       userPaused = p;
       cmp._userPaused = p;
       syncButton();
-      if (userPaused) { reel.pause(); paintAll(); }
+      if (userPaused) { reel.pause(); paintAll(true); }
       else if (!pendingLoad) reel.play().catch(function () {});
       /* play() legally pends through seeks and low readyState - gating it
          on readiness silently swallowed presses landing mid-seek. The only
@@ -1246,7 +1257,18 @@
       tile.querySelectorAll(".fa-swap").forEach(function (b) {
         b.addEventListener("click", function () { swap(b.getAttribute("data-side"), m); });
       });
-      tile.querySelector(".fa-tile-media").addEventListener("click", function () {
+      /* the preview enlarges on click; give it the keyboard contract that
+         goes with that, or the lightbox is mouse- and touch-only (WCAG 2.1.1) */
+      var media = tile.querySelector(".fa-tile-media");
+      media.setAttribute("role", "button");
+      media.setAttribute("tabindex", "0");
+      media.setAttribute("aria-label", "Enlarge the " + label(m) + " fly-through");
+      media.addEventListener("click", function () {
+        openQuadLightbox(m);
+      });
+      media.addEventListener("keydown", function (ev) {
+        if (ev.key !== "Enter" && ev.key !== " " && ev.key !== "Spacebar") return;
+        ev.preventDefault(); /* Space would scroll the page */
         openQuadLightbox(m);
       });
       return tile;
@@ -1281,7 +1303,7 @@
       if (side === "a") left = m; else right = m;
       syncTexts();
       buildBench();
-      paintAll();
+      paintAll(true);
     }
 
     zones.forEach(function (z) {
@@ -1317,6 +1339,9 @@
       my.cancel = function () {
         if (my.canceled) return;
         my.canceled = true;
+        /* the gate setPaused() consults must open again, or a load that
+           never arrives leaves the play button pressing into nothing */
+        if (pendingLoad === my) pendingLoad = null;
         reel.removeEventListener("loadeddata", my.onLoaded);
         demandDown();
       };
@@ -1331,7 +1356,14 @@
         if (my.canceled) return;
         my.cancel();
         cmp.classList.remove("fa-loading");
-        /* the canvases keep the previous frame - nothing goes black */
+        /* the canvases keep the previous frame - nothing goes black. No
+           loadeddata will arrive to apply the intent recorded during the
+           load, so apply it here: otherwise the button reads "playing"
+           over a stopped reel. */
+        if (!userPaused && cmp._visible !== false) {
+          reel.play().catch(function () { paintSoon(); });
+        }
+        paintSoon();
       });
     }
 
