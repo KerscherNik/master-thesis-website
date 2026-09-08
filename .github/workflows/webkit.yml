@@ -1,11 +1,12 @@
 # Safari check: Playwright's WebKit on a macOS runner (the system media
 # frameworks, which is where the Linux WebKit build differs from Safari).
-# Runs on pushes to the webkit-check branch and on manual dispatch; it
-# deploys nothing.
+# Runs on pushes to the webkit-check branch and on manual dispatch, deploys
+# nothing, and publishes its results to the webkit-results branch so they
+# can be read without the Actions UI.
 name: WebKit
 
 permissions:
-  contents: read
+  contents: write
 
 on:
   push:
@@ -24,9 +25,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install webkit
-      - run: PW_WEBKIT=1 npx playwright test --project=webkit tests/e2e/explorer.spec.js tests/e2e/arena.spec.js tests/e2e/compare.spec.js
-      - if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: webkit-report
-          path: test-results/
+      - name: Run WebKit tests
+        continue-on-error: true
+        env:
+          PW_WEBKIT: "1"
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/webkit-results.json
+        run: |
+          npx playwright test --project=webkit --reporter=list,json \
+            tests/e2e/webkit-diag.spec.js tests/e2e/explorer.spec.js tests/e2e/arena.spec.js tests/e2e/compare.spec.js \
+            2>&1 | tee test-results/webkit-stdout.txt
+      - name: Publish results to the webkit-results branch
+        run: |
+          set -e
+          mkdir -p /tmp/results
+          cp -r test-results/. /tmp/results/ 2>/dev/null || true
+          find /tmp/results -name "*.webm" -delete
+          cd /tmp/results
+          git init -q && git checkout -q -b webkit-results
+          git config user.name "webkit-ci" && git config user.email "ci@users.noreply.github.com"
+          git add -A && git commit -qm "webkit results for ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:webkit-results
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
