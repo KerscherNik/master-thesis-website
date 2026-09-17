@@ -30,8 +30,9 @@ robots meta line in `index.html` (marked with a comment) and delete
 
 ## Page content
 
-1. Hero with title, author, supervisors, and resource buttons
-   (Thesis PDF and Code are placeholders until those links exist).
+1. Hero with title, author, supervisors, and resource buttons. The
+   Thesis (PDF) and Code buttons stay disabled while the thesis
+   repository is private.
 2. Teaser: the flowers test view, SAD vs 3DGS behind a draggable
    comparison slider.
 3. Abstract and the five-step method strip.
@@ -54,13 +55,9 @@ robots meta line in `index.html` (marked with a comment) and delete
    checkpoints (500 to 30,000 iterations) by a timeline scrubber, for
    four scenes.
 9. Pareto plot.
-10. "Discussion: one paragraph on what the results mean and their limits.
-    loss-level prior FreCo at three weights, the capacity reading that
-    explains both, DISTS, training time against converged count, the
-    uniform prune-floor control, and a "what this does not show"
-    subsection carrying the thesis' hedges (single seed, noise bands,
-    the flowers tuning scene, the Tanks & Temples off-screen effect,
-    MCMC and FDS-GS reaching higher quality).
+10. Discussion: three paragraphs on what the results mean (why the
+    signal works at the densification rule and not at the loss, what the
+    matched-count control shows, where the gain appears) and their limits.
 11. BibTeX, footer.
 
 ## Repository layout
@@ -213,7 +210,8 @@ set to "GitHub Actions" in the repository settings.
 
 ## Open items
 
-- Hero Thesis (PDF) and Code buttons are disabled placeholders.
+- Hero Thesis (PDF) and Code buttons are disabled until the thesis
+  repository is public; `index.html` marks the two anchors.
 - Git history carries every video re-render (about 1.5 GB). If renders
   keep changing, squash the history or move media to LFS or release
   assets.
